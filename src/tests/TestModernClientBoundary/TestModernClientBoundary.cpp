@@ -16,6 +16,11 @@
 
 #include <QtTest/QtTest>
 
+#include "Mumble.pb.h"
+#include "MumbleProtocol.h"
+
+#include <string>
+
 class TestModernClientBoundary : public QObject {
 	Q_OBJECT
 
@@ -31,6 +36,8 @@ private slots:
 	void protocolEventAdapterAcceptsMonotonicSequenceForActiveAttempt();
 	void protocolEventAdapterRejectsStaleSequence();
 	void protocolEventAdapterRejectsCancelledAttempt();
+	void protocolEventAdapterDispatchesValidControlProtobuf();
+	void protocolEventAdapterDiagnosesMalformedControlProtobuf();
 };
 
 void TestModernClientBoundary::strongIdsIncludeTheirValueAndConnectionEpoch() {
@@ -225,6 +232,47 @@ void TestModernClientBoundary::protocolEventAdapterRejectsCancelledAttempt() {
 	adapter.receive(adapters::ControlMessageEnvelope(4, QByteArray(), attempt, 1));
 
 	QCOMPARE(acceptedCount, 0);
+}
+
+void TestModernClientBoundary::protocolEventAdapterDispatchesValidControlProtobuf() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	MumbleProto::Version version;
+	version.set_version(0x010500);
+	std::string serializedVersion;
+	QVERIFY(version.SerializeToString(&serializedVersion));
+
+	int dispatchCount = 0;
+	adapters::ProtocolEventAdapter adapter([&dispatchCount](const adapters::ControlMessageEnvelope &) { ++dispatchCount; });
+	const ConnectionAttemptId attempt { 8 };
+	adapter.setActiveAttempt(attempt);
+
+	QVERIFY(adapter.receive(adapters::ControlMessageEnvelope(
+		static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version),
+		QByteArray::fromStdString(serializedVersion), attempt, 1)));
+	QCOMPARE(dispatchCount, 1);
+}
+
+void TestModernClientBoundary::protocolEventAdapterDiagnosesMalformedControlProtobuf() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	int dispatchCount = 0;
+	adapters::ProtocolEventAdapter adapter([&dispatchCount](const adapters::ControlMessageEnvelope &) { ++dispatchCount; });
+	QSignalSpy diagnosticSpy(&adapter, &adapters::ProtocolEventAdapter::protocolDiagnostic);
+	const ConnectionAttemptId attempt { 8 };
+	adapter.setActiveAttempt(attempt);
+
+	QVERIFY(!adapter.receive(adapters::ControlMessageEnvelope(
+		static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version), QByteArray::fromHex("80"), attempt, 1)));
+	QCOMPARE(dispatchCount, 0);
+	QCOMPARE(diagnosticSpy.count(), 1);
+	const adapters::ProtocolDiagnostic diagnostic = qvariant_cast< adapters::ProtocolDiagnostic >(diagnosticSpy.takeFirst().at(0));
+	QCOMPARE(diagnostic.messageType, static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version));
+	QCOMPARE(diagnostic.attempt, attempt);
+	QCOMPARE(diagnostic.receiveSequence, 1ULL);
+	QVERIFY(diagnostic.reason.contains(QStringLiteral("Version")));
 }
 
 QTEST_MAIN(TestModernClientBoundary)

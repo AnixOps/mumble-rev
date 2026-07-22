@@ -5,6 +5,11 @@
 
 #include "ProtocolEventAdapter.h"
 
+#include "legacy/LegacyProtocolReceiver.h"
+
+#include "Mumble.pb.h"
+#include "MumbleProtocol.h"
+
 #include <QThread>
 #include <QtGlobal>
 
@@ -13,7 +18,9 @@
 namespace mumble::modern::adapters {
 
 ProtocolEventAdapter::ProtocolEventAdapter(ParsedMessageCallback parsedMessageCallback, QObject *parent)
-	: QObject(parent), m_ownerThread(QThread::currentThread()), m_parsedMessageCallback(std::move(parsedMessageCallback)) {}
+	: QObject(parent), m_ownerThread(QThread::currentThread()), m_parsedMessageCallback(std::move(parsedMessageCallback)) {
+	qRegisterMetaType< ProtocolDiagnostic >("mumble::modern::adapters::ProtocolDiagnostic");
+}
 
 void ProtocolEventAdapter::setActiveAttempt(contracts::ConnectionAttemptId attempt) {
 	assertOnOwnerThread();
@@ -29,6 +36,11 @@ void ProtocolEventAdapter::cancelAttempt(contracts::ConnectionAttemptId attempt)
 	}
 }
 
+void ProtocolEventAdapter::setLegacyReceiver(LegacyProtocolReceiver *legacyReceiver) {
+	assertOnOwnerThread();
+	m_legacyReceiver = legacyReceiver;
+}
+
 bool ProtocolEventAdapter::receive(const ControlMessageEnvelope &envelope) {
 	assertOnOwnerThread();
 	if (!m_activeAttempt.has_value() || envelope.attempt() != m_activeAttempt.value()) {
@@ -39,10 +51,35 @@ bool ProtocolEventAdapter::receive(const ControlMessageEnvelope &envelope) {
 	}
 
 	m_lastAcceptedSequence = envelope.receiveSequence();
-	if (m_parsedMessageCallback) {
-		m_parsedMessageCallback(envelope);
+	return parseAndDispatch(envelope);
+}
+
+bool ProtocolEventAdapter::parseAndDispatch(const ControlMessageEnvelope &envelope) {
+#define PROCESS_MUMBLE_TCP_MESSAGE(name, value)                                                                  \
+	case static_cast< quint32 >(Mumble::Protocol::TCPMessageType::name): {                                        \
+		MumbleProto::name message;                                                                                  \
+		if (!message.ParseFromArray(envelope.payload().constData(), envelope.payload().size())) {                   \
+			reportDiagnostic(envelope, QStringLiteral("Unable to parse ") + QStringLiteral(#name) + QStringLiteral(" control message")); \
+			return false;                                                                                              \
+		}                                                                                                            \
+		if (m_legacyReceiver != nullptr) {                                                                          \
+			m_legacyReceiver->dispatch(message);                                                                      \
+		}                                                                                                            \
+		if (m_parsedMessageCallback) {                                                                              \
+			m_parsedMessageCallback(envelope);                                                                        \
+		}                                                                                                            \
+		return true;                                                                                                 \
 	}
-	return true;
+
+	switch (envelope.messageType()) { MUMBLE_ALL_TCP_MESSAGES }
+#undef PROCESS_MUMBLE_TCP_MESSAGE
+
+	reportDiagnostic(envelope, QStringLiteral("Unknown TCP control message type"));
+	return false;
+}
+
+void ProtocolEventAdapter::reportDiagnostic(const ControlMessageEnvelope &envelope, const QString &reason) {
+	emit protocolDiagnostic({ envelope.messageType(), envelope.attempt(), envelope.receiveSequence(), reason });
 }
 
 void ProtocolEventAdapter::assertOnOwnerThread() const {
