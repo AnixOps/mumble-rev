@@ -110,7 +110,8 @@ void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndReject
 	QTRY_COMPARE(cancellationSpy.count(), 1);
 	QCoreApplication::processEvents();
 	QCOMPARE(receiver.dispatchedMessageTypes.size(), 2);
-	QCOMPARE(envelopeSpy.count(), 2);
+	QCOMPARE(envelopeSpy.count(), 3);
+	QCOMPARE(qvariant_cast< adapters::ControlMessageEnvelope >(envelopeSpy.at(2).at(0)), staleEnvelope);
 
 	const adapters::UdpTransportEvent transportEvent { adapters::UdpTransportState::Degraded,
 		QStringLiteral("Queued transport event") };
