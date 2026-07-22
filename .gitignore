@@ -52,3 +52,5 @@ __pycache__/
 CMakeSettings.json
 CLAUDE.md
 .idea
+.worktrees/
+docs/dev/modern-client/phase0-test-server.env

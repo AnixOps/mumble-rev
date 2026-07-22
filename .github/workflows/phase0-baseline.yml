@@ -1,0 +1,21 @@
+name: Phase 0 baseline
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate Phase 0 baseline artifacts
+        shell: bash
+        run: |
+          test -f docs/dev/modern-client/README.md
+          test -f docs/dev/modern-client/phase0-baseline.md
+          test -f docs/dev/modern-client/phase0-smoke-checklist.md
+          test -f docs/dev/modern-client/phase0-measurements.csv.example
+          test -f docs/dev/modern-client/phase0-test-server.env.example
+          test -x scripts/validate-phase0-baseline.sh
+          bash scripts/validate-phase0-baseline.sh docs/dev/modern-client/phase0-measurements.csv.example
