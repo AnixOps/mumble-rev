@@ -1,0 +1,5 @@
+run_id,utc_timestamp,git_revision,windows_version,display_scale_percent,build_type,scenario,metric,value,unit,notes
+synthetic-001,2026-01-01T00:00:00Z,000000000,Windows_11_23H2,100,Debug,controlled_server_warm,startup_to_window_ms,1250,ms,synthetic_median_of_five_warm_runs
+synthetic-002,2026-01-01T00:00:00Z,000000000,Windows_11_23H2,100,Debug,controlled_server_warm,working_set_mb,210.5,MiB,synthetic_median_of_five_warm_runs
+synthetic-003,2026-01-01T00:00:00Z,000000000,Windows_11_23H2,100,Release,controlled_server_warm,synchronization_ms,480,ms,synthetic_median_of_five_warm_runs
+synthetic-004,2026-01-01T00:00:00Z,000000000,Windows_11_23H2,100,Release,large_channel_tree_talk,talk_state_update_ms,16.2,ms,synthetic_median_of_five_warm_runs

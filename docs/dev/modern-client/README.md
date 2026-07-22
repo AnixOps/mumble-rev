@@ -20,6 +20,11 @@ services and state stores while migration is in progress.
   snapshots, model roles, and state machines.
 - [Migration plan](migration-plan.md) defines implementation phases, exit
   criteria, compatibility strategy, and verification.
+- [Phase 0 baseline procedure](phase0-baseline.md) defines the reproducible
+  Windows build, controlled-server, evidence, and measurement process for the
+  unmodified legacy client.
+- [Phase 0 smoke checklist](phase0-smoke-checklist.md) defines the manual
+  Windows verification protocol and evidence records for that baseline.
 - [Cross-platform alignment](cross-platform-alignment.md) defines what can be
   shared with independently implemented Apple clients.
 - [ADR 0001](adr/0001-in-process-application-boundary.md) records why the
