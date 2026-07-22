@@ -7,11 +7,17 @@ add_library(mumble_modern_contracts STATIC contracts/ModernContracts.cpp)
 target_link_libraries(mumble_modern_contracts PUBLIC Qt6::Core)
 target_include_directories(mumble_modern_contracts PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_library(mumble_modern_application STATIC application/ModernApplication.cpp)
+add_library(mumble_modern_application STATIC
+	ModernClientBootstrap.cpp
+	application/ClientApplication.cpp
+	application/stores/ConnectionStore.cpp
+)
+set_target_properties(mumble_modern_application PROPERTIES AUTOMOC ON)
 target_link_libraries(mumble_modern_application PUBLIC mumble_modern_contracts Qt6::Core)
 target_include_directories(mumble_modern_application PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_library(mumble_modern_presentation STATIC presentation/ModernPresentation.cpp)
+add_library(mumble_modern_presentation STATIC presentation/ConnectionPresentationProbe.cpp)
+set_target_properties(mumble_modern_presentation PROPERTIES AUTOMOC ON)
 target_link_libraries(mumble_modern_presentation PUBLIC mumble_modern_application Qt6::Core)
 target_include_directories(mumble_modern_presentation PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 

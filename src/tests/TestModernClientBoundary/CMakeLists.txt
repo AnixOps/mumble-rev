@@ -13,7 +13,8 @@ file(WRITE "${MODERN_DEPENDENCY_FIXTURE_FILE}" "#include <QtWidgets/QWidget>\n")
 
 add_executable(TestModernClientBoundary TestModernClientBoundary.cpp)
 set_target_properties(TestModernClientBoundary PROPERTIES AUTOMOC ON)
-target_link_libraries(TestModernClientBoundary PRIVATE Qt6::Test mumble_modern_contracts mumble_modern_testing)
+target_link_libraries(TestModernClientBoundary PRIVATE Qt6::Test mumble_modern_application mumble_modern_presentation
+	mumble_modern_testing)
 add_test(NAME TestModernClientBoundary COMMAND TestModernClientBoundary)
 
 add_test(

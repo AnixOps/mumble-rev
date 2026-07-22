@@ -3,8 +3,12 @@
 // that can be found in the LICENSE file at the root of the
 // Mumble source tree or at <https://www.mumble.info/LICENSE>.
 
+#include "ModernClientBootstrap.h"
+#include "application/ClientApplication.h"
+#include "application/stores/ConnectionStore.h"
 #include "contracts/ClientTypes.h"
 #include "contracts/ConnectionSnapshot.h"
+#include "presentation/ConnectionPresentationProbe.h"
 #include "testing/FakeConnectionPort.h"
 #include "testing/FakeSessionCommandPort.h"
 
@@ -18,6 +22,9 @@ private slots:
 	void connectionSnapshotStartsIdleAndEmpty();
 	void fakeConnectionPortOnlyRecordsCalls();
 	void fakeSessionCommandPortOnlyRecordsCalls();
+	void connectionStoreStartsIdleAndReplacesSnapshotOnItsConstructionThread();
+	void clientApplicationAndBootstrapUseInjectedPorts();
+	void presentationProbeObservesConnectionPhase();
 };
 
 void TestModernClientBoundary::strongIdsIncludeTheirValueAndConnectionEpoch() {
@@ -103,6 +110,53 @@ void TestModernClientBoundary::fakeSessionCommandPortOnlyRecordsCalls() {
 	QVERIFY(port.setUserVolumeCalls == expectedSetUserVolumeCalls);
 	QVERIFY(port.channelMessages == expectedChannelMessages);
 	QVERIFY(port.privateMessages == expectedPrivateMessages);
+}
+
+void TestModernClientBoundary::connectionStoreStartsIdleAndReplacesSnapshotOnItsConstructionThread() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	application::ConnectionStore store;
+	QCOMPARE(store.snapshot().phase, ConnectionPhase::Idle);
+
+	ConnectionSnapshot replacement;
+	replacement.phase = ConnectionPhase::ConnectingTransport;
+	store.replaceSnapshot(replacement);
+
+	QCOMPARE(store.snapshot().phase, ConnectionPhase::ConnectingTransport);
+}
+
+void TestModernClientBoundary::clientApplicationAndBootstrapUseInjectedPorts() {
+	using namespace mumble::modern;
+
+	testing::FakeConnectionPort connectionPort;
+	testing::FakeSessionCommandPort sessionCommandPort;
+	application::ClientApplication application(connectionPort, sessionCommandPort);
+	QCOMPARE(&application.connectionPort(), &connectionPort);
+	QCOMPARE(&application.sessionCommandPort(), &sessionCommandPort);
+	QCOMPARE(application.connectionStore().snapshot().phase, contracts::ConnectionPhase::Idle);
+
+	ModernClientBootstrap bootstrap(connectionPort, sessionCommandPort);
+	QCOMPARE(&bootstrap.application().connectionPort(), &connectionPort);
+	QCOMPARE(&bootstrap.application().sessionCommandPort(), &sessionCommandPort);
+}
+
+void TestModernClientBoundary::presentationProbeObservesConnectionPhase() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	testing::FakeConnectionPort connectionPort;
+	testing::FakeSessionCommandPort sessionCommandPort;
+	application::ClientApplication application(connectionPort, sessionCommandPort);
+	presentation::ConnectionPresentationProbe probe(application.connectionStore());
+	QSignalSpy phaseChangedSpy(&probe, &presentation::ConnectionPresentationProbe::connectionPhaseChanged);
+
+	QCOMPARE(probe.connectionPhase(), ConnectionPhase::Idle);
+	ConnectionSnapshot snapshot;
+	snapshot.phase = ConnectionPhase::Synchronizing;
+	application.connectionStore().replaceSnapshot(snapshot);
+	QCOMPARE(probe.connectionPhase(), ConnectionPhase::Synchronizing);
+	QCOMPARE(phaseChangedSpy.count(), 1);
 }
 
 QTEST_MAIN(TestModernClientBoundary)
