@@ -37,6 +37,21 @@ add_test(
 set_tests_properties(TestPhase0BaselineValidationQuotedSecret PROPERTIES WILL_FAIL TRUE)
 
 add_test(
+	NAME TestPhase0BaselineValidationQuotedAddress
+	COMMAND "${BASH_EXECUTABLE}" "${PHASE0_BASELINE_VALIDATOR}" "${CMAKE_CURRENT_SOURCE_DIR}/valid.csv" "${CMAKE_CURRENT_SOURCE_DIR}/quoted-address.env")
+set_tests_properties(TestPhase0BaselineValidationQuotedAddress PROPERTIES WILL_FAIL TRUE)
+
+add_test(
+	NAME TestPhase0BaselineValidationQuotedUsername
+	COMMAND "${BASH_EXECUTABLE}" "${PHASE0_BASELINE_VALIDATOR}" "${CMAKE_CURRENT_SOURCE_DIR}/valid.csv" "${CMAKE_CURRENT_SOURCE_DIR}/quoted-username.env")
+set_tests_properties(TestPhase0BaselineValidationQuotedUsername PROPERTIES WILL_FAIL TRUE)
+
+add_test(
+	NAME TestPhase0BaselineValidationQuotedCertificatePath
+	COMMAND "${BASH_EXECUTABLE}" "${PHASE0_BASELINE_VALIDATOR}" "${CMAKE_CURRENT_SOURCE_DIR}/valid.csv" "${CMAKE_CURRENT_SOURCE_DIR}/quoted-certificate-path.env")
+set_tests_properties(TestPhase0BaselineValidationQuotedCertificatePath PROPERTIES WILL_FAIL TRUE)
+
+add_test(
 	NAME TestPhase0BaselineValidationHeaderOnly
 	COMMAND "${BASH_EXECUTABLE}" "${PHASE0_BASELINE_VALIDATOR}" "${CMAKE_CURRENT_SOURCE_DIR}/header-only.csv")
 set_tests_properties(TestPhase0BaselineValidationHeaderOnly PROPERTIES WILL_FAIL TRUE)
