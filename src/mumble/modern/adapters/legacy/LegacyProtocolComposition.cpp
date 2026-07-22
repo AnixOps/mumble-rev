@@ -28,12 +28,12 @@ void LegacyProtocolComposition::attach(ServerHandler &serverHandler) {
 	QObject::connect(&serverHandler, &ServerHandler::controlMessageReceived, &m_adapter,
 					 &ProtocolEventAdapter::receive, Qt::QueuedConnection);
 	QObject::connect(&serverHandler, &ServerHandler::udpTransportEvent, &m_adapter,
-					 [this](const UdpTransportEvent &event) {
-						 if (m_legacyReceiver) {
-							 m_legacyReceiver->present(event);
-						 }
-					 },
+					 [this](const UdpTransportEvent &event) { m_receiver.present(event); },
 					 Qt::QueuedConnection);
+}
+
+ProtocolEventAdapter &LegacyProtocolComposition::protocolAdapterForTesting() {
+	return m_adapter;
 }
 
 } // namespace mumble::modern::adapters

@@ -795,6 +795,16 @@ void ServerHandlerProtocolTestHarness::cancelAttempt(ServerHandler &handler) {
 	handler.cancelActiveConnectionAttempt();
 }
 
+void ServerHandlerProtocolTestHarness::deliverControlEnvelope(ServerHandler &handler,
+	const mumble::modern::adapters::ControlMessageEnvelope &envelope) {
+	emit handler.controlMessageReceived(envelope);
+}
+
+void ServerHandlerProtocolTestHarness::deliverUdpTransportEvent(ServerHandler &handler,
+	const mumble::modern::adapters::UdpTransportEvent &event) {
+	emit handler.udpTransportEvent(event);
+}
+
 void ServerHandler::serverConnectionClosed(QAbstractSocket::SocketError err, const QString &reason) {
 	cancelActiveConnectionAttempt();
 	changeState(ServerHandlerState::ConnectionOver);

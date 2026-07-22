@@ -51,6 +51,7 @@ public:
 	bool receive(const ControlMessageEnvelope &envelope);
 
 signals:
+	void attemptCancelled(contracts::ConnectionAttemptId attempt);
 	void protocolDiagnostic(const ProtocolDiagnostic &diagnostic);
 
 private:

@@ -19,7 +19,7 @@ public:
 #define PROCESS_MUMBLE_TCP_MESSAGE(name, value) void dispatch(const MumbleProto::name &message) override;
 	MUMBLE_ALL_TCP_MESSAGES
 #undef PROCESS_MUMBLE_TCP_MESSAGE
-	void present(const UdpTransportEvent &event);
+	void present(const UdpTransportEvent &event) override;
 
 private:
 	MainWindow &m_mainWindow;

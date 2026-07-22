@@ -35,6 +35,7 @@ void ProtocolEventAdapter::cancelAttempt(contracts::ConnectionAttemptId attempt)
 	if (m_activeAttempt.has_value() && m_activeAttempt.value() == attempt) {
 		m_activeAttempt.reset();
 		m_lastAcceptedSequence.reset();
+		emit attemptCancelled(attempt);
 	}
 }
 

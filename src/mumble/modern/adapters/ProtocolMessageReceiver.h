@@ -10,6 +10,8 @@
 
 namespace mumble::modern::adapters {
 
+struct UdpTransportEvent;
+
 class ProtocolMessageReceiver {
 public:
 	virtual ~ProtocolMessageReceiver() = default;
@@ -17,6 +19,7 @@ public:
 #define PROCESS_MUMBLE_TCP_MESSAGE(name, value) virtual void dispatch(const MumbleProto::name &message) = 0;
 	MUMBLE_ALL_TCP_MESSAGES
 #undef PROCESS_MUMBLE_TCP_MESSAGE
+	virtual void present(const UdpTransportEvent &) {}
 };
 
 } // namespace mumble::modern::adapters

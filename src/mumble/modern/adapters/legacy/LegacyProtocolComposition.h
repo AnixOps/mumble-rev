@@ -20,6 +20,7 @@ public:
 	explicit LegacyProtocolComposition(MainWindow &mainWindow);
 	explicit LegacyProtocolComposition(ProtocolMessageReceiver &receiver);
 	void attach(ServerHandler &serverHandler);
+	ProtocolEventAdapter &protocolAdapterForTesting();
 
 private:
 	std::unique_ptr< LegacyProtocolReceiver > m_legacyReceiver;

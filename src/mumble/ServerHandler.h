@@ -256,6 +256,10 @@ public:
 	static void receiveControlMessage(ServerHandler &handler, Mumble::Protocol::TCPMessageType type,
 		const QByteArray &payload);
 	static void cancelAttempt(ServerHandler &handler);
+	static void deliverControlEnvelope(ServerHandler &handler,
+		const mumble::modern::adapters::ControlMessageEnvelope &envelope);
+	static void deliverUdpTransportEvent(ServerHandler &handler,
+		const mumble::modern::adapters::UdpTransportEvent &event);
 };
 
 #endif
