@@ -1,6 +1,8 @@
 # Modern Windows Client
 
-Status: Phase 0 baseline accepted; Phase 1 boundary skeleton and Phase 2 neutral protocol entry are under verification.
+Status: Phase 0 baseline accepted; Phase 1 boundary skeleton and Phase 2 neutral
+protocol entry are under verification; Phase 3 authoritative connection-state
+work is in progress.
 
 This directory defines the architecture and migration plan for a modern Windows
 Mumble client. The client will use Qt Quick for its primary user interface while
