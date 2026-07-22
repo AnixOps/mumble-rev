@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "application/services/ConnectionService.h"
 #include "application/stores/ConnectionStore.h"
 #include "contracts/ports/ConnectionPort.h"
 #include "contracts/ports/SessionCommandPort.h"
@@ -17,6 +18,7 @@ public:
 
 	ConnectionStore &connectionStore();
 	const ConnectionStore &connectionStore() const;
+	ConnectionService &connectionService();
 	contracts::ConnectionPort &connectionPort();
 	contracts::SessionCommandPort &sessionCommandPort();
 
@@ -24,6 +26,7 @@ private:
 	contracts::ConnectionPort &m_connectionPort;
 	contracts::SessionCommandPort &m_sessionCommandPort;
 	ConnectionStore m_connectionStore;
+	ConnectionService m_connectionService;
 };
 
 } // namespace mumble::modern::application

@@ -10,6 +10,7 @@ target_include_directories(mumble_modern_contracts PUBLIC "${CMAKE_CURRENT_SOURC
 add_library(mumble_modern_application STATIC
 	ModernClientBootstrap.cpp
 	application/ClientApplication.cpp
+	application/services/ConnectionService.cpp
 	application/stores/ConnectionStore.cpp
 )
 set_target_properties(mumble_modern_application PROPERTIES AUTOMOC ON)
