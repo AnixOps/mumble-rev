@@ -1,0 +1,2 @@
+run,utc_timestamp,git_revision,windows_version,display_scale_percent,build_type,scenario,metric,value,unit,notes
+warm-01,2026-07-22T10:00:00Z,9da721e64,Windows-11-23H2,150,Debug,small-channel-tree,startup_to_window_ms,123.45,ms,synthetic-fixture
