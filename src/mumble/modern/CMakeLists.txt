@@ -21,6 +21,13 @@ set_target_properties(mumble_modern_presentation PROPERTIES AUTOMOC ON)
 target_link_libraries(mumble_modern_presentation PUBLIC mumble_modern_application Qt6::Core)
 target_include_directories(mumble_modern_presentation PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
+add_library(mumble_modern_protocol_adapter STATIC
+	adapters/ProtocolEventAdapter.cpp
+)
+set_target_properties(mumble_modern_protocol_adapter PROPERTIES AUTOMOC ON)
+target_link_libraries(mumble_modern_protocol_adapter PUBLIC mumble_modern_contracts Qt6::Core)
+target_include_directories(mumble_modern_protocol_adapter PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+
 add_library(mumble_modern_testing STATIC testing/ModernTesting.cpp)
 target_link_libraries(mumble_modern_testing PUBLIC mumble_modern_contracts)
 target_include_directories(mumble_modern_testing PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

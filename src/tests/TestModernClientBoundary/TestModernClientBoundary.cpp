@@ -9,6 +9,8 @@
 #include "contracts/ClientTypes.h"
 #include "contracts/ConnectionSnapshot.h"
 #include "presentation/ConnectionPresentationProbe.h"
+#include "adapters/ControlMessageEnvelope.h"
+#include "adapters/ProtocolEventAdapter.h"
 #include "testing/FakeConnectionPort.h"
 #include "testing/FakeSessionCommandPort.h"
 
@@ -25,6 +27,10 @@ private slots:
 	void connectionStoreStartsIdleAndReplacesSnapshotOnItsConstructionThread();
 	void clientApplicationAndBootstrapUseInjectedPorts();
 	void presentationProbeObservesConnectionPhase();
+	void controlMessageEnvelopeCopiesItsPayload();
+	void protocolEventAdapterAcceptsMonotonicSequenceForActiveAttempt();
+	void protocolEventAdapterRejectsStaleSequence();
+	void protocolEventAdapterRejectsCancelledAttempt();
 };
 
 void TestModernClientBoundary::strongIdsIncludeTheirValueAndConnectionEpoch() {
@@ -157,6 +163,68 @@ void TestModernClientBoundary::presentationProbeObservesConnectionPhase() {
 	application.connectionStore().replaceSnapshot(snapshot);
 	QCOMPARE(probe.connectionPhase(), ConnectionPhase::Synchronizing);
 	QCOMPARE(phaseChangedSpy.count(), 1);
+}
+
+void TestModernClientBoundary::controlMessageEnvelopeCopiesItsPayload() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	QByteArray payload("original");
+	const adapters::ControlMessageEnvelope envelope(4, payload, ConnectionAttemptId { 7 }, 1);
+	payload.replace("original", "changed");
+	const ConnectionAttemptId expectedAttempt { 7 };
+
+	QCOMPARE(envelope.messageType(), 4U);
+	QCOMPARE(envelope.payload(), QByteArray("original"));
+	QCOMPARE(envelope.attempt(), expectedAttempt);
+	QCOMPARE(envelope.receiveSequence(), 1ULL);
+}
+
+void TestModernClientBoundary::protocolEventAdapterAcceptsMonotonicSequenceForActiveAttempt() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	QVector< quint64 > acceptedSequences;
+	adapters::ProtocolEventAdapter adapter([&acceptedSequences](const adapters::ControlMessageEnvelope &envelope) {
+		acceptedSequences.append(envelope.receiveSequence());
+	});
+	adapter.setActiveAttempt(ConnectionAttemptId { 8 });
+	adapter.receive(adapters::ControlMessageEnvelope(4, QByteArray("one"), ConnectionAttemptId { 8 }, 1));
+	adapter.receive(adapters::ControlMessageEnvelope(5, QByteArray("two"), ConnectionAttemptId { 8 }, 2));
+
+	const QVector< quint64 > expectedSequences { 1, 2 };
+	QCOMPARE(acceptedSequences, expectedSequences);
+}
+
+void TestModernClientBoundary::protocolEventAdapterRejectsStaleSequence() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	QVector< quint64 > acceptedSequences;
+	adapters::ProtocolEventAdapter adapter([&acceptedSequences](const adapters::ControlMessageEnvelope &envelope) {
+		acceptedSequences.append(envelope.receiveSequence());
+	});
+	adapter.setActiveAttempt(ConnectionAttemptId { 8 });
+	adapter.receive(adapters::ControlMessageEnvelope(4, QByteArray(), ConnectionAttemptId { 8 }, 2));
+	adapter.receive(adapters::ControlMessageEnvelope(4, QByteArray(), ConnectionAttemptId { 8 }, 1));
+	adapter.receive(adapters::ControlMessageEnvelope(4, QByteArray(), ConnectionAttemptId { 8 }, 2));
+
+	const QVector< quint64 > expectedSequences { 2 };
+	QCOMPARE(acceptedSequences, expectedSequences);
+}
+
+void TestModernClientBoundary::protocolEventAdapterRejectsCancelledAttempt() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	int acceptedCount = 0;
+	adapters::ProtocolEventAdapter adapter([&acceptedCount](const adapters::ControlMessageEnvelope &) { ++acceptedCount; });
+	const ConnectionAttemptId attempt { 8 };
+	adapter.setActiveAttempt(attempt);
+	adapter.cancelAttempt(attempt);
+	adapter.receive(adapters::ControlMessageEnvelope(4, QByteArray(), attempt, 1));
+
+	QCOMPARE(acceptedCount, 0);
 }
 
 QTEST_MAIN(TestModernClientBoundary)

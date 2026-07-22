@@ -42,7 +42,7 @@ file(WRITE "${MODERN_LINK_DEPENDENCY_CONTROL_DIR}/CMakeLists.txt"
 add_executable(TestModernClientBoundary TestModernClientBoundary.cpp)
 set_target_properties(TestModernClientBoundary PROPERTIES AUTOMOC ON)
 target_link_libraries(TestModernClientBoundary PRIVATE Qt6::Test mumble_modern_application mumble_modern_presentation
-	mumble_modern_testing)
+	mumble_modern_protocol_adapter mumble_modern_testing)
 add_test(NAME TestModernClientBoundary COMMAND TestModernClientBoundary)
 
 add_executable(TestModernClientBoundaryThreadAssertion ConnectionStoreThreadAssertion.cpp)
