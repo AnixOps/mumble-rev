@@ -239,7 +239,7 @@ void TestModernClientBoundary::protocolEventAdapterDispatchesValidControlProtobu
 	using namespace mumble::modern::contracts;
 
 	MumbleProto::Version version;
-	version.set_version(0x010500);
+	version.set_version_v1(0x010500);
 	std::string serializedVersion;
 	QVERIFY(version.SerializeToString(&serializedVersion));
 

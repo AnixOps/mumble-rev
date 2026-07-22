@@ -361,6 +361,10 @@ target_link_libraries(mumble_client_object_lib PUBLIC smallft)
 # The modern boundary is intentionally independent of the legacy executable.
 add_subdirectory(modern)
 
+# Legacy protocol adapters use modern contract value types while remaining
+# compiled with the legacy client's private UI context.
+target_link_libraries(mumble_client_object_lib PRIVATE mumble_modern_contracts)
+
 # Legacy adapters that invoke MainWindow remain in the existing legacy UI
 # compilation target so they inherit its private widget build context.
 target_sources(mumble_client_object_lib PRIVATE

@@ -22,7 +22,13 @@
 
 namespace {
 
-class ProtocolMessageReceiverSpy : public mumble::modern::adapters::ProtocolMessageReceiver {
+class ProtocolMessageReceiverSpy : public QObject, public mumble::modern::adapters::ProtocolMessageReceiver {
+	Q_OBJECT
+
+signals:
+	void messageDispatched();
+	void transportEventPresented();
+
 public:
 #define PROCESS_MUMBLE_TCP_MESSAGE(name, value) \
 	void dispatch(const MumbleProto::name &) override { \
@@ -31,6 +37,7 @@ public:
 		if (onDispatch) { \
 			onDispatch(Mumble::Protocol::TCPMessageType::name); \
 		} \
+		emit messageDispatched(); \
 	}
 	MUMBLE_ALL_TCP_MESSAGES
 #undef PROCESS_MUMBLE_TCP_MESSAGE
@@ -44,6 +51,7 @@ public:
 	void present(const mumble::modern::adapters::UdpTransportEvent &event) override {
 		presentedTransportEvents.append(event);
 		presentedOn = QThread::currentThread();
+		emit transportEventPresented();
 	}
 };
 
@@ -94,12 +102,16 @@ void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndReject
 	QSignalSpy envelopeSpy(&handler, &ServerHandler::controlMessageReceived);
 	QSignalSpy cancellationSpy(&composition.protocolAdapterForTesting(),
 		&adapters::ProtocolEventAdapter::attemptCancelled);
+	QSignalSpy dispatchSpy(&receiver, &ProtocolMessageReceiverSpy::messageDispatched);
+	QSignalSpy transportSpy(&receiver, &ProtocolMessageReceiverSpy::transportEventPresented);
 	QVERIFY(attemptSpy.isValid());
 	QVERIFY(envelopeSpy.isValid());
 	QVERIFY(cancellationSpy.isValid());
+	QVERIFY(dispatchSpy.isValid());
+	QVERIFY(transportSpy.isValid());
 
 	MumbleProto::Version version;
-	version.set_version(0x010500);
+	version.set_version_v1(0x010500);
 	std::string serializedVersion;
 	QVERIFY(version.SerializeToString(&serializedVersion));
 
@@ -115,7 +127,10 @@ void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndReject
 		handler, Mumble::Protocol::TCPMessageType::ServerConfig, QByteArray::fromStdString(serializedServerConfig));
 
 	QCOMPARE(receiver.dispatchedMessageTypes.size(), 0);
-	QTRY_COMPARE(receiver.dispatchedMessageTypes.size(), 2);
+	while (dispatchSpy.count() < static_cast< qsizetype >(2)) {
+		QVERIFY(dispatchSpy.wait(1000));
+	}
+	QCOMPARE(receiver.dispatchedMessageTypes.size(), 2);
 	QCOMPARE(receiver.dispatchedOn, QCoreApplication::instance()->thread());
 	QCOMPARE(static_cast< quint32 >(receiver.dispatchedMessageTypes.at(0)),
 		static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version));
@@ -138,7 +153,10 @@ void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndReject
 		3);
 	ServerHandlerProtocolTestHarness::cancelAttempt(handler);
 	ServerHandlerProtocolTestHarness::deliverControlEnvelope(handler, staleEnvelope);
-	QTRY_COMPARE(cancellationSpy.count(), 1);
+	while (cancellationSpy.count() < static_cast< qsizetype >(1)) {
+		QVERIFY(cancellationSpy.wait(1000));
+	}
+	QCOMPARE(cancellationSpy.count(), 1);
 	QCoreApplication::processEvents();
 	QCOMPARE(receiver.dispatchedMessageTypes.size(), 2);
 	QCOMPARE(envelopeSpy.count(), 3);
@@ -147,7 +165,10 @@ void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndReject
 	const adapters::UdpTransportEvent transportEvent { adapters::UdpTransportState::Degraded,
 		QStringLiteral("Queued transport event") };
 	ServerHandlerProtocolTestHarness::deliverUdpTransportEvent(handler, transportEvent);
-	QTRY_COMPARE(receiver.presentedTransportEvents.size(), 1);
+	while (transportSpy.count() < static_cast< qsizetype >(1)) {
+		QVERIFY(transportSpy.wait(1000));
+	}
+	QCOMPARE(receiver.presentedTransportEvents.size(), 1);
 	QCOMPARE(receiver.presentedTransportEvents.at(0).state, transportEvent.state);
 	QCOMPARE(receiver.presentedTransportEvents.at(0).message, transportEvent.message);
 	QCOMPARE(receiver.presentedOn, QCoreApplication::instance()->thread());
@@ -158,6 +179,8 @@ void TestServerHandlerProtocolComposition::logsMalformedEnvelopeWithoutDispatchi
 
 	ServerHandler handler(ServerHandler::ProtocolTestMode {});
 	ProtocolMessageReceiverSpy receiver;
+	QSignalSpy dispatchSpy(&receiver, &ProtocolMessageReceiverSpy::messageDispatched);
+	QVERIFY(dispatchSpy.isValid());
 	bool legacySynchronized = false;
 	receiver.onDispatch = [&legacySynchronized](Mumble::Protocol::TCPMessageType type) {
 		if (type == Mumble::Protocol::TCPMessageType::ServerSync) {
@@ -175,7 +198,10 @@ void TestServerHandlerProtocolComposition::logsMalformedEnvelopeWithoutDispatchi
 	ServerHandlerProtocolTestHarness::startAttempt(handler);
 	ServerHandlerProtocolTestHarness::receiveControlMessage(
 		handler, Mumble::Protocol::TCPMessageType::ServerSync, QByteArray::fromStdString(serializedServerSync));
-	QTRY_COMPARE(receiver.dispatchedMessageTypes.size(), 1);
+	while (dispatchSpy.count() < static_cast< qsizetype >(1)) {
+		QVERIFY(dispatchSpy.wait(1000));
+	}
+	QCOMPARE(receiver.dispatchedMessageTypes.size(), 1);
 	const auto comparison = composition.shadowComparisonForTesting();
 	QVERIFY(comparison.has_value());
 	QVERIFY(comparison->matches());
@@ -193,11 +219,16 @@ void TestServerHandlerProtocolComposition::logsMalformedEnvelopeWithoutDispatchi
 	QCOMPARE(rejectionComparison->phase, adapters::ShadowConnectionPhase::Rejected);
 
 	QStringList warnings;
+	QSignalSpy diagnosticSpy(&composition.protocolAdapterForTesting(), &adapters::ProtocolEventAdapter::protocolDiagnostic);
+	QVERIFY(diagnosticSpy.isValid());
 	{
 		QtWarningCapture warningCapture(warnings);
 		ServerHandlerProtocolTestHarness::receiveControlMessage(
 			handler, Mumble::Protocol::TCPMessageType::Version, QByteArray::fromHex("80"));
-		QTRY_VERIFY(!warnings.isEmpty());
+		while (diagnosticSpy.count() < static_cast< qsizetype >(1)) {
+			QVERIFY(diagnosticSpy.wait(1000));
+		}
+		QVERIFY(!warnings.isEmpty());
 	}
 
 	QCOMPARE(receiver.dispatchedMessageTypes.size(), 1);
