@@ -51,5 +51,6 @@ jobs:
             -Dice=OFF \
             -DCMAKE_UNITY_BUILD=ON
           cmake --build .
+          export QT_QPA_PLATFORM=offscreen
           ctest --output-on-failure
           cmake --install .
