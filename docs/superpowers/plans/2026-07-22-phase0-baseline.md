@@ -32,7 +32,14 @@
 
 - [ ] **Step 1: Write failing CTest registration and fixtures**
 
-Register the directory after `TestTimer` in `src/tests/CMakeLists.txt`. Add a CMake file that finds `bash`, runs `scripts/validate-phase0-baseline.sh` for a valid fixture, and marks invalid cases with `WILL_FAIL TRUE`. Configure with `cmake -S . -B build-phase0 -Dtests=ON -Dclient=OFF -Dserver=OFF`; the focused CTest run must fail because the validator is absent.
+Register the directory after `TestTimer` in `src/tests/CMakeLists.txt`. Add a CMake file that finds `bash`, runs `scripts/validate-phase0-baseline.sh` for a valid fixture, and marks invalid cases with `WILL_FAIL TRUE`. Configure and run the focused CTest suite with:
+
+```bash
+cmake -S . -B build-phase0 -Dtests=ON -Dclient=ON -Dserver=OFF
+ctest --test-dir build-phase0 -R Phase0Baseline --output-on-failure
+```
+
+`client=ON` is a CMake project-selection prerequisite only; the Phase 0 validator CTest neither constructs a client window nor requires a network connection, audio device, or `Global`. The focused CTest run must fail because the validator is absent.
 
 - [ ] **Step 2: Implement the validator**
 
