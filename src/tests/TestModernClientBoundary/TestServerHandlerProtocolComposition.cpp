@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -99,9 +100,9 @@ void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndReject
 	composition.attach(handler);
 
 	QSignalSpy attemptSpy(&handler, &ServerHandler::connectionAttemptStarted);
-	QVector< adapters::ControlMessageEnvelope > emittedEnvelopes;
+	std::vector< adapters::ControlMessageEnvelope > emittedEnvelopes;
 	QObject::connect(&handler, &ServerHandler::controlMessageReceived, &handler,
-		[&emittedEnvelopes](const adapters::ControlMessageEnvelope &envelope) { emittedEnvelopes.append(envelope); });
+		[&emittedEnvelopes](const adapters::ControlMessageEnvelope &envelope) { emittedEnvelopes.push_back(envelope); });
 	QSignalSpy cancellationSpy(&composition.protocolAdapterForTesting(),
 		&adapters::ProtocolEventAdapter::attemptCancelled);
 	QSignalSpy dispatchSpy(&receiver, &ProtocolMessageReceiverSpy::messageDispatched);
