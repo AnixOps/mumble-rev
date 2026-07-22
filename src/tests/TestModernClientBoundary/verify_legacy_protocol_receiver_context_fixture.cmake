@@ -52,6 +52,18 @@ expect_rejected_modern_declaration("a target_sources declaration on a non-modern
 "target_sources(unrelated_target PRIVATE\n"
 "  \"adapters/legacy/LegacyProtocolReceiver.cpp\"\n"
 ")\n")
+expect_rejected_modern_declaration("an add_library declaration with a bracket receiver source"
+"add_library(bracket_receiver_target STATIC\n"
+"  [=[adapters/legacy/LegacyProtocolReceiver.cpp]=]\n"
+")\n")
+expect_rejected_modern_declaration("an uppercase add_executable declaration with a bracket receiver source"
+"ADD_EXECUTABLE(bracket_receiver_target\n"
+"  [[adapters/legacy/LegacyProtocolReceiver.cpp]]\n"
+")\n")
+expect_rejected_modern_declaration("a mixed-case target_sources declaration with a bracket receiver source"
+"TaRgEt_SoUrCeS(unrelated_target PRIVATE\n"
+"  [[adapters/legacy/LegacyProtocolReceiver.cpp]]\n"
+")\n")
 
 file(WRITE "${fixture_modern_dir}/CMakeLists.txt"
 "set(receiver_source_listing \"adapters/legacy/LegacyProtocolReceiver.cpp\")\n"
@@ -86,7 +98,9 @@ file(WRITE "${fixture_modern_dir}/CMakeLists.txt"
 "]=]\n"
 "set(bracket_documentation [=[\n"
 "add_executable(documented_target adapters/legacy/LegacyProtocolReceiver.cpp)\n"
-"]=])\n")
+"]=])\n"
+"set(bracket_source_documentation [=[adapters/legacy/LegacyProtocolReceiver.cpp]=])\n"
+"#[[adapters/legacy/LegacyProtocolReceiver.cpp]]\n")
 execute_process(
 	COMMAND "${CMAKE_COMMAND}"
 		"-DMUMBLE_CMAKE_FILE=${fixture_mumble_file}"
