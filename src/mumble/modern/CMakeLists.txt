@@ -29,6 +29,7 @@ target_link_libraries(mumble_modern_protocol_adapter PUBLIC mumble_modern_contra
 target_include_directories(mumble_modern_protocol_adapter PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_library(mumble_modern_legacy_protocol_receiver STATIC
+	adapters/legacy/ConnectionSynchronizationShadow.cpp
 	adapters/legacy/LegacyProtocolComposition.cpp
 	adapters/legacy/LegacyProtocolReceiver.cpp
 )

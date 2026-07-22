@@ -21,6 +21,14 @@ rejects a sequence lower than the last accepted sequence for that attempt, and
 parses only on the main thread. Parse failure emits a diagnostic value and
 never reaches the legacy receiver.
 
+The legacy composition routes those diagnostics to the existing Qt/application
+log pipeline without recording payload bytes or notifying users. It also owns a
+read-only shadow of connection/synchronization state. After legacy dispatch,
+the shadow compares the inbound attempt's expected synchronization state with
+the legacy `MainWindow::serverSynchronized` lifecycle signal and emits only a
+diagnostic on divergence. The shadow has no command, settings, audio, or
+notification dependency.
+
 The temporary `LegacyProtocolReceiver` is the only Phase 2 component allowed
 to include both the adapter contract and `MainWindow.h`. It dispatches a valid
 parsed message to the corresponding existing `msgX` handler. There is no

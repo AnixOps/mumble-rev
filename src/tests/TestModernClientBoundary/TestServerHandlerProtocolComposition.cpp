@@ -17,6 +17,7 @@
 #include "Mumble.pb.h"
 #include "MumbleProtocol.h"
 
+#include <functional>
 #include <string>
 
 namespace {
@@ -27,12 +28,16 @@ public:
 	void dispatch(const MumbleProto::name &) override { \
 		dispatchedMessageTypes.append(Mumble::Protocol::TCPMessageType::name); \
 		dispatchedOn = QThread::currentThread(); \
+		if (onDispatch) { \
+			onDispatch(Mumble::Protocol::TCPMessageType::name); \
+		} \
 	}
 	MUMBLE_ALL_TCP_MESSAGES
 #undef PROCESS_MUMBLE_TCP_MESSAGE
 
 	QVector< Mumble::Protocol::TCPMessageType > dispatchedMessageTypes;
 	QThread *dispatchedOn = nullptr;
+	std::function< void(Mumble::Protocol::TCPMessageType) > onDispatch;
 	QVector< mumble::modern::adapters::UdpTransportEvent > presentedTransportEvents;
 	QThread *presentedOn = nullptr;
 
@@ -42,6 +47,31 @@ public:
 	}
 };
 
+QStringList *capturedWarnings = nullptr;
+
+void captureQtWarning(QtMsgType type, const QMessageLogContext &, const QString &message) {
+	if (type == QtWarningMsg && capturedWarnings != nullptr) {
+		capturedWarnings->append(message);
+	}
+}
+
+class QtWarningCapture {
+public:
+	explicit QtWarningCapture(QStringList &warnings) : m_warnings(warnings) {
+		capturedWarnings = &m_warnings;
+		m_previousHandler = qInstallMessageHandler(captureQtWarning);
+	}
+
+	~QtWarningCapture() {
+		qInstallMessageHandler(m_previousHandler);
+		capturedWarnings = nullptr;
+	}
+
+private:
+	QStringList &m_warnings;
+	QtMessageHandler m_previousHandler = nullptr;
+};
+
 } // namespace
 
 class TestServerHandlerProtocolComposition : public QObject {
@@ -49,6 +79,7 @@ class TestServerHandlerProtocolComposition : public QObject {
 
 private slots:
 	void queuesServerHandlerEnvelopesAndRejectsCancelledAttempt();
+	void logsMalformedEnvelopeWithoutDispatchingAndComparesShadowState();
 };
 
 void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndRejectsCancelledAttempt() {
@@ -120,6 +151,57 @@ void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndReject
 	QCOMPARE(receiver.presentedTransportEvents.at(0).state, transportEvent.state);
 	QCOMPARE(receiver.presentedTransportEvents.at(0).message, transportEvent.message);
 	QCOMPARE(receiver.presentedOn, QCoreApplication::instance()->thread());
+}
+
+void TestServerHandlerProtocolComposition::logsMalformedEnvelopeWithoutDispatchingAndComparesShadowState() {
+	using namespace mumble::modern;
+
+	ServerHandler handler(ServerHandler::ProtocolTestMode {});
+	ProtocolMessageReceiverSpy receiver;
+	bool legacySynchronized = false;
+	receiver.onDispatch = [&legacySynchronized](Mumble::Protocol::TCPMessageType type) {
+		if (type == Mumble::Protocol::TCPMessageType::ServerSync) {
+			legacySynchronized = true;
+		}
+	};
+	adapters::LegacyProtocolComposition composition(receiver, [&legacySynchronized] { return legacySynchronized; });
+	composition.attach(handler);
+
+	MumbleProto::ServerSync serverSync;
+	serverSync.set_session(7);
+	std::string serializedServerSync;
+	QVERIFY(serverSync.SerializeToString(&serializedServerSync));
+
+	ServerHandlerProtocolTestHarness::startAttempt(handler);
+	ServerHandlerProtocolTestHarness::receiveControlMessage(
+		handler, Mumble::Protocol::TCPMessageType::ServerSync, QByteArray::fromStdString(serializedServerSync));
+	QTRY_COMPARE(receiver.dispatchedMessageTypes.size(), 1);
+	const auto comparison = composition.shadowComparisonForTesting();
+	QVERIFY(comparison.has_value());
+	QVERIFY(comparison->matches());
+	QCOMPARE(comparison->phase, adapters::ShadowConnectionPhase::Synchronized);
+
+	adapters::ConnectionSynchronizationShadow rejectionShadow;
+	const contracts::ConnectionAttemptId rejectedAttempt { 2 };
+	rejectionShadow.startAttempt(rejectedAttempt);
+	const auto rejectionComparison = rejectionShadow.observeAcceptedControlMessage(
+		adapters::ControlMessageEnvelope(static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Reject), QByteArray(),
+			rejectedAttempt, 1),
+		false);
+	QVERIFY(rejectionComparison.has_value());
+	QVERIFY(rejectionComparison->matches());
+	QCOMPARE(rejectionComparison->phase, adapters::ShadowConnectionPhase::Rejected);
+
+	QStringList warnings;
+	{
+		QtWarningCapture warningCapture(warnings);
+		ServerHandlerProtocolTestHarness::receiveControlMessage(
+			handler, Mumble::Protocol::TCPMessageType::Version, QByteArray::fromHex("80"));
+		QTRY_VERIFY(!warnings.isEmpty());
+	}
+
+	QCOMPARE(receiver.dispatchedMessageTypes.size(), 1);
+	QVERIFY(warnings.join(QLatin1Char('\n')).contains(QStringLiteral("Modern protocol diagnostic: type=")));
 }
 
 QTEST_MAIN(TestServerHandlerProtocolComposition)
