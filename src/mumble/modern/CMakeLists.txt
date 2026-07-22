@@ -33,7 +33,7 @@ add_library(mumble_modern_legacy_protocol_receiver STATIC
 	adapters/legacy/LegacyProtocolComposition.cpp
 	adapters/legacy/LegacyProtocolReceiver.cpp
 )
-target_link_libraries(mumble_modern_legacy_protocol_receiver PUBLIC mumble_modern_protocol_adapter)
+target_link_libraries(mumble_modern_legacy_protocol_receiver PUBLIC mumble_modern_protocol_adapter Qt6::Widgets)
 target_include_directories(mumble_modern_legacy_protocol_receiver PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_library(mumble_modern_testing STATIC testing/ModernTesting.cpp)
