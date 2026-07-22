@@ -28,15 +28,12 @@ def main():
     print("Checking commit styles - target branch: \"{}\"".format(targetBranch))
 
     try:
-        # Set up remote 
-        remoteName = "mumble-upstream"
-        cmd(["git", "remote", "add", remoteName, "https://github.com/mumble-voip/mumble.git"])
+        # The checkout action places HEAD on the PR branch. Fetch the PR target
+        # explicitly so that only commits introduced by this PR are checked.
+        cmd(["git", "fetch", "--no-recurse-submodules", "origin", targetBranch])
 
-        # Fetch remote
-        cmd(["git", "fetch", "--no-recurse-submodules", remoteName])
-
-        # get new commits
-        commitHashes = [x for x in cmd(["git", "rev-list", "{}/{}..HEAD".format(remoteName, targetBranch)]).split("\n") if x]
+        # Get new commits.
+        commitHashes = [x for x in cmd(["git", "rev-list", "origin/{}..HEAD".format(targetBranch)]).split("\n") if x]
         # Reverse the order of the commits so that oldest comes first
         commitHashes.reverse()
 
@@ -67,8 +64,7 @@ def main():
             sys.exit(1)
 
     finally:
-        # remove remote again
-        cmd(["git", "remote", "remove", remoteName])
+        pass
 
 if __name__ == "__main__":
     main()
