@@ -3,8 +3,50 @@
 # that can be found in the LICENSE file at the root of the
 # Mumble source tree or at <https://www.mumble.info/LICENSE>.
 
+function(_verify_modern_target_dependencies MODERN_TARGET MODERN_VISITED_TARGETS)
+	list(FIND MODERN_VISITED_TARGETS "${MODERN_TARGET}" MODERN_TARGET_VISITED_INDEX)
+	if(NOT MODERN_TARGET_VISITED_INDEX EQUAL -1)
+		return()
+	endif()
+
+	list(APPEND MODERN_VISITED_TARGETS "${MODERN_TARGET}")
+	foreach(MODERN_TARGET_PROPERTY IN ITEMS LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
+		get_target_property(MODERN_TARGET_LINKS "${MODERN_TARGET}" "${MODERN_TARGET_PROPERTY}")
+		if(NOT MODERN_TARGET_LINKS OR MODERN_TARGET_LINKS STREQUAL "MODERN_TARGET_LINKS-NOTFOUND")
+			continue()
+		endif()
+
+		foreach(MODERN_TARGET_LINK IN LISTS MODERN_TARGET_LINKS)
+			string(REGEX MATCH "Qt[0-9]+::(Widgets|Quick)" MODERN_FORBIDDEN_LINK "${MODERN_TARGET_LINK}")
+			if(MODERN_FORBIDDEN_LINK)
+				message(FATAL_ERROR
+					"Forbidden linked target '${MODERN_FORBIDDEN_LINK}' in ${MODERN_TARGET}")
+			endif()
+
+			set(MODERN_RESOLVED_TARGET_LINK "${MODERN_TARGET_LINK}")
+			string(REGEX REPLACE "^\\$<LINK_ONLY:([^>]+)>$" "\\1" MODERN_RESOLVED_TARGET_LINK
+				"${MODERN_RESOLVED_TARGET_LINK}")
+			string(REGEX REPLACE "^\\$<BUILD_INTERFACE:([^>]+)>$" "\\1" MODERN_RESOLVED_TARGET_LINK
+				"${MODERN_RESOLVED_TARGET_LINK}")
+			if(TARGET "${MODERN_RESOLVED_TARGET_LINK}")
+				_verify_modern_target_dependencies("${MODERN_RESOLVED_TARGET_LINK}" "${MODERN_VISITED_TARGETS}")
+			endif()
+		endforeach()
+	endforeach()
+endfunction()
+
+function(verify_modern_layer_dependencies)
+	foreach(MODERN_LAYER_TARGET IN ITEMS mumble_modern_contracts mumble_modern_application)
+		if(NOT TARGET "${MODERN_LAYER_TARGET}")
+			message(FATAL_ERROR "Required modern target '${MODERN_LAYER_TARGET}' does not exist")
+		endif()
+
+		_verify_modern_target_dependencies("${MODERN_LAYER_TARGET}" "")
+	endforeach()
+endfunction()
+
 if(NOT DEFINED MODERN_SOURCE_DIR)
-	message(FATAL_ERROR "MODERN_SOURCE_DIR is required")
+	return()
 endif()
 
 set(MODERN_FORBIDDEN_INCLUDE_TOKENS

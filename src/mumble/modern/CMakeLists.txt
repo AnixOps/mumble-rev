@@ -25,6 +25,9 @@ add_library(mumble_modern_testing STATIC testing/ModernTesting.cpp)
 target_link_libraries(mumble_modern_testing PUBLIC mumble_modern_contracts)
 target_include_directories(mumble_modern_testing PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_layer_dependencies.cmake")
+verify_modern_layer_dependencies()
+
 add_custom_target(verify_modern_layer_dependencies ALL
 	COMMAND "${CMAKE_COMMAND}"
 		"-DMODERN_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
