@@ -48,6 +48,8 @@ void TestModernClientBoundary::connectionSnapshotStartsIdleAndEmpty() {
 	QVERIFY(!snapshot.lastError.has_value());
 	QVERIFY(!snapshot.transportHealth.tcpLatency.isAvailable);
 	QVERIFY(!snapshot.transportHealth.udpLatency.isAvailable);
+	QVERIFY(!snapshot.transportHealth.tcpPacketsLost.has_value());
+	QVERIFY(!snapshot.transportHealth.udpPacketsLost.has_value());
 }
 
 void TestModernClientBoundary::fakeConnectionPortOnlyRecordsCalls() {
@@ -66,8 +68,10 @@ void TestModernClientBoundary::fakeConnectionPortOnlyRecordsCalls() {
 
 	QCOMPARE(port.connectionRequests.size(), 1);
 	QVERIFY(port.connectionRequests.constFirst() == request);
-	QVERIFY(port.cancelledAttempts == QVector< ConnectionAttemptId > { ConnectionAttemptId { 3 } });
-	QVERIFY(port.disconnectedEpochs == QVector< ConnectionEpoch > { ConnectionEpoch { 7 } });
+	const QVector< ConnectionAttemptId > expectedCancelledAttempts { ConnectionAttemptId { 3 } };
+	const QVector< ConnectionEpoch > expectedDisconnectedEpochs { ConnectionEpoch { 7 } };
+	QVERIFY(port.cancelledAttempts == expectedCancelledAttempts);
+	QVERIFY(port.disconnectedEpochs == expectedDisconnectedEpochs);
 	QCOMPARE(port.acceptedCertificateChallenges.size(), 1);
 	QCOMPARE(port.rejectedCertificateChallenges.size(), 1);
 }
@@ -89,11 +93,16 @@ void TestModernClientBoundary::fakeSessionCommandPortOnlyRecordsCalls() {
 	port.sendChannelMessage(channelMessage);
 	port.sendPrivateMessage(privateMessage);
 
-	QVERIFY(port.joinChannelCalls == QVector< testing::JoinChannelCall > { { epoch, ChannelId { 2 } } });
-	QVERIFY(port.setSelfMuteDeafCalls == QVector< testing::SetSelfMuteDeafCall > { { epoch, true, false } });
-	QVERIFY(port.setUserVolumeCalls == QVector< testing::SetUserVolumeCall > { { epoch, UserSessionId { 5 }, 0.75F } });
-	QVERIFY(port.channelMessages == QVector< SendChannelMessage > { channelMessage });
-	QVERIFY(port.privateMessages == QVector< SendPrivateMessage > { privateMessage });
+	const QVector< testing::JoinChannelCall > expectedJoinChannelCalls { { epoch, ChannelId { 2 } } };
+	const QVector< testing::SetSelfMuteDeafCall > expectedSetSelfMuteDeafCalls { { epoch, true, false } };
+	const QVector< testing::SetUserVolumeCall > expectedSetUserVolumeCalls { { epoch, UserSessionId { 5 }, 0.75F } };
+	const QVector< SendChannelMessage > expectedChannelMessages { channelMessage };
+	const QVector< SendPrivateMessage > expectedPrivateMessages { privateMessage };
+	QVERIFY(port.joinChannelCalls == expectedJoinChannelCalls);
+	QVERIFY(port.setSelfMuteDeafCalls == expectedSetSelfMuteDeafCalls);
+	QVERIFY(port.setUserVolumeCalls == expectedSetUserVolumeCalls);
+	QVERIFY(port.channelMessages == expectedChannelMessages);
+	QVERIFY(port.privateMessages == expectedPrivateMessages);
 }
 
 QTEST_MAIN(TestModernClientBoundary)

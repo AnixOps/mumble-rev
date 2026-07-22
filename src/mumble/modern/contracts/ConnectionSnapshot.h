@@ -42,8 +42,8 @@ struct TransportHealth {
 	TransportMetric tcpLatency;
 	TransportMetric udpLatency;
 	TransportMetric latencyVariance;
-	quint64 tcpPacketsLost = 0;
-	quint64 udpPacketsLost = 0;
+	std::optional< quint64 > tcpPacketsLost;
+	std::optional< quint64 > udpPacketsLost;
 	QDateTime lastUpdated;
 };
 
