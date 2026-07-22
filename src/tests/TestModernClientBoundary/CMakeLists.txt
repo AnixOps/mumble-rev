@@ -9,11 +9,15 @@ set(MODERN_DEPENDENCY_FIXTURE_DIR "${CMAKE_CURRENT_BINARY_DIR}/forbidden-depende
 set(MODERN_DEPENDENCY_FIXTURE_FILE "${MODERN_DEPENDENCY_FIXTURE_DIR}/contracts/ForbiddenInclude.h")
 set(MODERN_LINK_DEPENDENCY_FIXTURE_DIR "${CMAKE_CURRENT_BINARY_DIR}/forbidden-link-dependency-fixture")
 set(MODERN_LINK_DEPENDENCY_FIXTURE_BUILD_DIR "${MODERN_LINK_DEPENDENCY_FIXTURE_DIR}/build")
+set(MODERN_LINK_DEPENDENCY_CONTROL_DIR "${CMAKE_CURRENT_BINARY_DIR}/linker-flag-control-fixture")
+set(MODERN_LINK_DEPENDENCY_CONTROL_BUILD_DIR "${MODERN_LINK_DEPENDENCY_CONTROL_DIR}/build")
 
 file(MAKE_DIRECTORY "${MODERN_DEPENDENCY_FIXTURE_DIR}/contracts")
 file(WRITE "${MODERN_DEPENDENCY_FIXTURE_FILE}" "#include <QtWidgets/QWidget>\n")
 file(MAKE_DIRECTORY "${MODERN_LINK_DEPENDENCY_FIXTURE_DIR}/contracts")
 file(WRITE "${MODERN_LINK_DEPENDENCY_FIXTURE_DIR}/contracts/ModernContracts.cpp" "")
+file(MAKE_DIRECTORY "${MODERN_LINK_DEPENDENCY_CONTROL_DIR}/contracts")
+file(WRITE "${MODERN_LINK_DEPENDENCY_CONTROL_DIR}/contracts/ModernContracts.cpp" "")
 file(WRITE "${MODERN_LINK_DEPENDENCY_FIXTURE_DIR}/CMakeLists.txt"
 "cmake_minimum_required(VERSION 3.23)\n"
 "project(ForbiddenModernLinkDependency LANGUAGES CXX)\n"
@@ -21,7 +25,15 @@ file(WRITE "${MODERN_LINK_DEPENDENCY_FIXTURE_DIR}/CMakeLists.txt"
 "add_library(Qt6::Widgets INTERFACE IMPORTED)\n"
 "add_library(legacy_ui ALIAS Qt6::Widgets)\n"
 "add_library(mumble_modern_contracts STATIC contracts/ModernContracts.cpp)\n"
-"target_link_libraries(mumble_modern_contracts PUBLIC Qt6::Core \"$<$<CONFIG:Debug>:legacy_ui>\")\n"
+"target_link_libraries(mumble_modern_contracts PUBLIC Qt6::Core \"$<TARGET_NAME_IF_EXISTS:legacy_ui>\")\n"
+"include(\"${MODERN_DEPENDENCY_VERIFIER}\")\n"
+"verify_modern_layer_dependencies()\n")
+file(WRITE "${MODERN_LINK_DEPENDENCY_CONTROL_DIR}/CMakeLists.txt"
+"cmake_minimum_required(VERSION 3.23)\n"
+"project(ModernLinkerFlagControl LANGUAGES CXX)\n"
+"add_library(Qt6::Core INTERFACE IMPORTED)\n"
+"add_library(mumble_modern_contracts STATIC contracts/ModernContracts.cpp)\n"
+"target_link_libraries(mumble_modern_contracts PUBLIC Qt6::Core -Wl,--as-needed)\n"
 "include(\"${MODERN_DEPENDENCY_VERIFIER}\")\n"
 "verify_modern_layer_dependencies()\n")
 
@@ -55,5 +67,7 @@ add_test(
 	COMMAND "${CMAKE_COMMAND}"
 		"-DMODERN_LINK_DEPENDENCY_FIXTURE_DIR=${MODERN_LINK_DEPENDENCY_FIXTURE_DIR}"
 		"-DMODERN_LINK_DEPENDENCY_FIXTURE_BUILD_DIR=${MODERN_LINK_DEPENDENCY_FIXTURE_BUILD_DIR}"
+		"-DMODERN_LINK_DEPENDENCY_CONTROL_DIR=${MODERN_LINK_DEPENDENCY_CONTROL_DIR}"
+		"-DMODERN_LINK_DEPENDENCY_CONTROL_BUILD_DIR=${MODERN_LINK_DEPENDENCY_CONTROL_BUILD_DIR}"
 		-P "${CMAKE_CURRENT_LIST_DIR}/verify_link_dependency_gate_fixture.cmake"
 )

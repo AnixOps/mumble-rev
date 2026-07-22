@@ -25,6 +25,10 @@ function(_resolve_modern_target_alias MODERN_TARGET MODERN_RESOLVED_TARGET)
 endfunction()
 
 function(_verify_modern_target_link_reference MODERN_TARGET_LINK MODERN_TARGET MODERN_VISITED_TARGETS)
+	if(MODERN_TARGET_LINK MATCHES "^-")
+		return()
+	endif()
+
 	_resolve_modern_target_alias("${MODERN_TARGET_LINK}" MODERN_RESOLVED_TARGET_LINK)
 	string(REGEX MATCH "^Qt[0-9]+::(Widgets|Quick)$" MODERN_FORBIDDEN_LINK
 		"${MODERN_RESOLVED_TARGET_LINK}")
@@ -35,6 +39,27 @@ function(_verify_modern_target_link_reference MODERN_TARGET_LINK MODERN_TARGET M
 	if(TARGET "${MODERN_RESOLVED_TARGET_LINK}")
 		_verify_modern_target_dependencies("${MODERN_RESOLVED_TARGET_LINK}" "${MODERN_VISITED_TARGETS}")
 	endif()
+endfunction()
+
+function(_verify_modern_generator_expression_targets MODERN_EXPRESSION MODERN_TARGET MODERN_VISITED_TARGETS)
+	# Keep complete candidates first, so namespace-qualified targets such as
+	# Qt6::Widgets are recognized. Then inspect colon-delimited generator-expression
+	# arguments (for example TARGET_NAME_IF_EXISTS:legacy_ui) individually.
+	string(REGEX REPLACE "[^A-Za-z0-9_.:+-]" ";" MODERN_TARGET_CANDIDATES
+		"${MODERN_EXPRESSION}")
+	foreach(MODERN_TARGET_CANDIDATE IN LISTS MODERN_TARGET_CANDIDATES)
+		if(MODERN_TARGET_CANDIDATE STREQUAL "")
+			continue()
+		endif()
+
+		_verify_modern_target_link_reference("${MODERN_TARGET_CANDIDATE}"
+			"${MODERN_TARGET}" "${MODERN_VISITED_TARGETS}")
+		string(REPLACE ":" ";" MODERN_TARGET_ARGUMENTS "${MODERN_TARGET_CANDIDATE}")
+		foreach(MODERN_TARGET_ARGUMENT IN LISTS MODERN_TARGET_ARGUMENTS)
+			_verify_modern_target_link_reference("${MODERN_TARGET_ARGUMENT}"
+				"${MODERN_TARGET}" "${MODERN_VISITED_TARGETS}")
+		endforeach()
+	endforeach()
 endfunction()
 
 function(_verify_modern_target_dependencies MODERN_TARGET MODERN_VISITED_TARGETS)
@@ -58,14 +83,8 @@ function(_verify_modern_target_dependencies MODERN_TARGET MODERN_VISITED_TARGETS
 			string(REGEX REPLACE "^\\$<BUILD_INTERFACE:([^>]+)>$" "\\1" MODERN_RESOLVED_TARGET_LINK
 				"${MODERN_RESOLVED_TARGET_LINK}")
 			if(MODERN_RESOLVED_TARGET_LINK MATCHES "\\$<")
-				# Generator expressions can conditionally hide a target. Inspect only target-like
-				# tokens, then use the same alias resolution and graph traversal as direct links.
-				string(REGEX MATCHALL "[A-Za-z_][A-Za-z0-9_:.+-]*" MODERN_GENERATOR_EXPRESSION_TOKENS
-					"${MODERN_RESOLVED_TARGET_LINK}")
-				foreach(MODERN_GENERATOR_EXPRESSION_TOKEN IN LISTS MODERN_GENERATOR_EXPRESSION_TOKENS)
-					_verify_modern_target_link_reference("${MODERN_GENERATOR_EXPRESSION_TOKEN}"
-						"${MODERN_TARGET}" "${MODERN_VISITED_TARGETS}")
-				endforeach()
+				_verify_modern_generator_expression_targets("${MODERN_RESOLVED_TARGET_LINK}"
+					"${MODERN_TARGET}" "${MODERN_VISITED_TARGETS}")
 			else()
 				_verify_modern_target_link_reference("${MODERN_RESOLVED_TARGET_LINK}"
 					"${MODERN_TARGET}" "${MODERN_VISITED_TARGETS}")
