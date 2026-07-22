@@ -36,10 +36,31 @@ file(GLOB_RECURSE modern_cmake_files
 	"${MODERN_SOURCE_DIR}/*.cmake")
 foreach(modern_cmake_file IN LISTS modern_cmake_files)
 	file(READ "${modern_cmake_file}" modern_cmake)
-	string(REGEX REPLACE "[\r\n\t]" " " modern_cmake "${modern_cmake}")
-	string(REGEX MATCHALL
-		"(add_library|target_sources)[ ]*\\([ ]*mumble_modern_[A-Za-z0-9_]+[^)]*\\)"
-		modern_target_declarations "${modern_cmake}")
+	# Only inspect actual top-level CMake target commands. This deliberately leaves
+	# source-list strings and other non-target contexts alone.
+	string(REPLACE "\r\n" "\n" modern_cmake "${modern_cmake}")
+	string(REPLACE "\r" "\n" modern_cmake "${modern_cmake}")
+	string(REPLACE "\n" ";" modern_cmake_lines "${modern_cmake}")
+	set(modern_target_declarations)
+	set(modern_target_declaration "")
+	set(modern_target_declaration_open FALSE)
+	foreach(modern_cmake_line IN LISTS modern_cmake_lines)
+		if(modern_target_declaration_open)
+			string(APPEND modern_target_declaration "\n${modern_cmake_line}")
+			if(modern_cmake_line MATCHES "\\)")
+				list(APPEND modern_target_declarations "${modern_target_declaration}")
+				set(modern_target_declaration_open FALSE)
+			endif()
+		elseif(modern_cmake_line MATCHES
+			"^[ \t]*(add_library|add_executable|target_sources)[ \t]*\\(")
+			set(modern_target_declaration "${modern_cmake_line}")
+			if(modern_cmake_line MATCHES "\\)")
+				list(APPEND modern_target_declarations "${modern_target_declaration}")
+			else()
+				set(modern_target_declaration_open TRUE)
+			endif()
+		endif()
+	endforeach()
 
 	foreach(modern_target_declaration IN LISTS modern_target_declarations)
 		foreach(receiver_source IN ITEMS
