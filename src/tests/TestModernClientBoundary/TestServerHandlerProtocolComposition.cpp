@@ -99,13 +99,14 @@ void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndReject
 	composition.attach(handler);
 
 	QSignalSpy attemptSpy(&handler, &ServerHandler::connectionAttemptStarted);
-	QSignalSpy envelopeSpy(&handler, &ServerHandler::controlMessageReceived);
+	QVector< adapters::ControlMessageEnvelope > emittedEnvelopes;
+	QObject::connect(&handler, &ServerHandler::controlMessageReceived, &handler,
+		[&emittedEnvelopes](const adapters::ControlMessageEnvelope &envelope) { emittedEnvelopes.append(envelope); });
 	QSignalSpy cancellationSpy(&composition.protocolAdapterForTesting(),
 		&adapters::ProtocolEventAdapter::attemptCancelled);
 	QSignalSpy dispatchSpy(&receiver, &ProtocolMessageReceiverSpy::messageDispatched);
 	QSignalSpy transportSpy(&receiver, &ProtocolMessageReceiverSpy::transportEventPresented);
 	QVERIFY(attemptSpy.isValid());
-	QVERIFY(envelopeSpy.isValid());
 	QVERIFY(cancellationSpy.isValid());
 	QVERIFY(dispatchSpy.isValid());
 	QVERIFY(transportSpy.isValid());
@@ -140,9 +141,11 @@ void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndReject
 	QCOMPARE(attemptSpy.count(), 1);
 	const auto attempt = qvariant_cast< contracts::ConnectionAttemptId >(attemptSpy.takeFirst().at(0));
 	QCOMPARE(attempt.value, 1ULL);
-	QCOMPARE(envelopeSpy.count(), 2);
-	const auto firstEnvelope = qvariant_cast< adapters::ControlMessageEnvelope >(envelopeSpy.at(0).at(0));
-	const auto secondEnvelope = qvariant_cast< adapters::ControlMessageEnvelope >(envelopeSpy.at(1).at(0));
+	QCOMPARE(emittedEnvelopes.size(), 2);
+	const auto &firstEnvelope = emittedEnvelopes.at(0);
+	const auto &secondEnvelope = emittedEnvelopes.at(1);
+	QCOMPARE(firstEnvelope.messageType(), static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version));
+	QCOMPARE(secondEnvelope.messageType(), static_cast< quint32 >(Mumble::Protocol::TCPMessageType::ServerConfig));
 	QCOMPARE(firstEnvelope.attempt(), attempt);
 	QCOMPARE(secondEnvelope.attempt(), attempt);
 	QCOMPARE(firstEnvelope.receiveSequence(), 1ULL);
@@ -159,8 +162,12 @@ void TestServerHandlerProtocolComposition::queuesServerHandlerEnvelopesAndReject
 	QCOMPARE(cancellationSpy.count(), 1);
 	QCoreApplication::processEvents();
 	QCOMPARE(receiver.dispatchedMessageTypes.size(), 2);
-	QCOMPARE(envelopeSpy.count(), 3);
-	QCOMPARE(qvariant_cast< adapters::ControlMessageEnvelope >(envelopeSpy.at(2).at(0)), staleEnvelope);
+	QCOMPARE(emittedEnvelopes.size(), 3);
+	const auto &emittedStaleEnvelope = emittedEnvelopes.at(2);
+	QCOMPARE(emittedStaleEnvelope.messageType(), staleEnvelope.messageType());
+	QCOMPARE(emittedStaleEnvelope.payload(), staleEnvelope.payload());
+	QCOMPARE(emittedStaleEnvelope.attempt(), staleEnvelope.attempt());
+	QCOMPARE(emittedStaleEnvelope.receiveSequence(), staleEnvelope.receiveSequence());
 
 	const adapters::UdpTransportEvent transportEvent { adapters::UdpTransportState::Degraded,
 		QStringLiteral("Queued transport event") };
