@@ -361,6 +361,18 @@ target_link_libraries(mumble_client_object_lib PUBLIC smallft)
 # The modern boundary is intentionally independent of the legacy executable.
 add_subdirectory(modern)
 
+# Legacy protocol adapters use modern contract value types while remaining
+# compiled with the legacy client's private UI context.
+target_link_libraries(mumble_client_object_lib PRIVATE mumble_modern_contracts)
+
+# Legacy adapters that invoke MainWindow remain in the existing legacy UI
+# compilation target so they inherit its private widget build context.
+target_sources(mumble_client_object_lib PRIVATE
+	"modern/adapters/legacy/ConnectionSynchronizationShadow.cpp"
+	"modern/adapters/legacy/LegacyProtocolComposition.cpp"
+	"modern/adapters/legacy/LegacyProtocolReceiver.cpp"
+)
+
 if(WIN32 AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 	# We don't want the console to appear in release builds.
 	add_executable(mumble WIN32 "main.cpp")
@@ -402,6 +414,7 @@ target_sources(mumble PRIVATE "ApplicationPalette.h")
 target_include_directories(mumble PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
 target_link_libraries(mumble PRIVATE mumble_client_object_lib shared spdlog::spdlog)
+target_link_libraries(mumble PRIVATE mumble_modern_protocol_adapter)
 target_link_libraries(mumble PRIVATE CLI11::CLI11)
 
 target_compile_definitions(mumble_client_object_lib

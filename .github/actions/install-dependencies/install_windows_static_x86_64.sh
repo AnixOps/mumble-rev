@@ -25,16 +25,3 @@ aria2c "https://github.com/oleg-shilo/wixsharp/releases/download/v1.19.0.0/WixSh
 extract_with_progress "WixSharp.7z" "C:/WixSharp"
 
 git clone "https://github.com/nathan818fr/vcvars-bash.git" "C:/vcvars-bash"
-
-
-# Configure database tables for Mumble tests
-echo -e "[mysqld]\nlog-bin-trust-function-creators = 1" >> "C:/Windows/my.ini"
-
-mysqld --initialize-insecure --console
-
-powershell -Command "Start-Process mysqld"
-
-# Give the MySQL daemon some time to start up
-sleep 5
-
-configure_database_tables "mysql"

@@ -5,6 +5,8 @@
 
 #include "MainWindow.h"
 
+#include "modern/adapters/legacy/LegacyProtocolComposition.h"
+
 #include "ACL.h"
 #include "ACLEditor.h"
 #include "About.h"
@@ -658,6 +660,15 @@ void MainWindow::msgBox(QString msg) {
 	QApplication::postEvent(this, mbe);
 }
 
+void MainWindow::presentTransportEvent(QString message) {
+	msgBox(std::move(message));
+}
+
+void MainWindow::setLegacyProtocolComposition(
+	std::unique_ptr< mumble::modern::adapters::LegacyProtocolComposition > composition) {
+	m_legacyProtocolComposition = std::move(composition);
+}
+
 #ifdef Q_OS_WIN
 bool MainWindow::nativeEvent(const QByteArray &, void *message, qintptr *) {
 	MSG *msg = reinterpret_cast< MSG * >(message);
@@ -1248,6 +1259,9 @@ static void recreateServerHandler() {
 	sh = ServerHandlerPtr(new ServerHandler());
 	sh->moveToThread(sh.get());
 	Global::get().sh = sh;
+	auto composition = std::make_unique< mumble::modern::adapters::LegacyProtocolComposition >(*Global::get().mw);
+	composition->attach(*sh);
+	Global::get().mw->setLegacyProtocolComposition(std::move(composition));
 	Global::get().mw->connect(sh.get(), SIGNAL(connected()), Global::get().mw, SLOT(serverConnected()));
 	Global::get().mw->connect(sh.get(), SIGNAL(disconnected(QAbstractSocket::SocketError, QString)), Global::get().mw,
 							  SLOT(serverDisconnected(QAbstractSocket::SocketError, QString)));

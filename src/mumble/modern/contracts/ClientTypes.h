@@ -6,6 +6,7 @@
 #pragma once
 
 #include <QDateTime>
+#include <QMetaType>
 #include <QString>
 #include <QStringList>
 #include <QUuid>
@@ -127,3 +128,5 @@ struct ClientError {
 };
 
 } // namespace mumble::modern::contracts
+
+Q_DECLARE_METATYPE(mumble::modern::contracts::ConnectionAttemptId)

@@ -35,8 +35,11 @@
 #include "MumbleProtocol.h"
 #include "ServerAddress.h"
 #include "Timer.h"
+#include "modern/adapters/ControlMessageEnvelope.h"
+#include "modern/adapters/ProtocolEventAdapter.h"
 
 #include <memory>
+#include <optional>
 
 class Connection;
 class Database;
@@ -44,6 +47,7 @@ class PacketDataStream;
 class QUdpSocket;
 class QSslSocket;
 class VoiceRecorder;
+class ServerHandlerProtocolTestHarness;
 
 class ServerHandlerMessageEvent : public QEvent {
 public:
@@ -72,6 +76,7 @@ class ServerHandler : public QThread {
 private:
 	Q_OBJECT
 	Q_DISABLE_COPY(ServerHandler)
+	friend class ServerHandlerProtocolTestHarness;
 
 	Database *database;
 
@@ -80,8 +85,12 @@ private:
 
 	bool isAborted();
 	void changeState(ServerHandlerState state);
+	void startConnectionAttempt();
 
 	ServerHandlerState m_state = ServerHandlerState::Idle;
+	quint64 m_nextConnectionAttempt = 0;
+	quint64 m_nextReceiveSequence = 0;
+	std::optional< mumble::modern::contracts::ConnectionAttemptId > m_activeConnectionAttempt;
 
 protected:
 	QString qsHostName;
@@ -111,6 +120,7 @@ protected:
 	QMutex qmUdp;
 
 	void handleVoicePacket(const Mumble::Protocol::AudioData &audioData);
+	void cancelActiveConnectionAttempt();
 
 public:
 	Timer tTimestamp;
@@ -144,6 +154,10 @@ public:
 		accTCP, accUDP, accClean;
 
 	ServerHandler();
+	// This constructor exists solely for the focused protocol handoff test. It
+	// intentionally does not initialize a database, TLS, Global, or sockets.
+	struct ProtocolTestMode {};
+	explicit ServerHandler(ProtocolTestMode);
 	~ServerHandler();
 	void setConnectionInfo(const QString &host, unsigned short port, const QString &username, const QString &pw);
 	void getConnectionInfo(QString &host, unsigned short &port, QString &username, QString &pw) const;
@@ -214,6 +228,10 @@ signals:
 	void connected();
 	void pingRequested();
 	void abortRequested();
+	void connectionAttemptStarted(mumble::modern::contracts::ConnectionAttemptId attempt);
+	void connectionAttemptCancelled(mumble::modern::contracts::ConnectionAttemptId attempt);
+	void controlMessageReceived(const mumble::modern::adapters::ControlMessageEnvelope &envelope);
+	void udpTransportEvent(const mumble::modern::adapters::UdpTransportEvent &event);
 protected slots:
 	void message(Mumble::Protocol::TCPMessageType type, const QByteArray &);
 	void serverConnectionConnected();
@@ -231,5 +249,17 @@ public slots:
 };
 
 using ServerHandlerPtr = std::shared_ptr< ServerHandler >;
+
+class ServerHandlerProtocolTestHarness {
+public:
+	static void startAttempt(ServerHandler &handler);
+	static void receiveControlMessage(ServerHandler &handler, Mumble::Protocol::TCPMessageType type,
+		const QByteArray &payload);
+	static void cancelAttempt(ServerHandler &handler);
+	static void deliverControlEnvelope(ServerHandler &handler,
+		const mumble::modern::adapters::ControlMessageEnvelope &envelope);
+	static void deliverUdpTransportEvent(ServerHandler &handler,
+		const mumble::modern::adapters::UdpTransportEvent &event);
+};
 
 #endif

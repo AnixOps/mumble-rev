@@ -71,15 +71,3 @@ if [[ $VERSION_ID = "22.04" ]]; then
 else
 	sudo apt -y install qt6-svg-dev
 fi
-
-# MySQL and PostgreSQL are pre-installed on GitHub-hosted runners.
-# Set them up for the Mumble tests
-echo -e "[mysqld]\nlog-bin-trust-function-creators = 1" | sudo tee -a /etc/mysql/my.cnf
-
-sudo systemctl enable mysql.service
-sudo systemctl start mysql.service
-
-sudo systemctl enable postgresql.service
-sudo systemctl start postgresql.service
-
-configure_database_tables "mysql" "postgresql"
