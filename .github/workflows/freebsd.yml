@@ -25,6 +25,7 @@ jobs:
           pkg update && pkg upgrade -y
           pkg install -y \
             avahi-libdns \
+            bash \
             boost-libs \
             cmake \
             git \
@@ -52,5 +53,3 @@ jobs:
           cmake --build .
           ctest --output-on-failure
           cmake --install .
-
-
