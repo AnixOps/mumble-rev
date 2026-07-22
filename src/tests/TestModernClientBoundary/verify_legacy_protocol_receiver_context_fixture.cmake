@@ -55,7 +55,12 @@ expect_rejected_modern_declaration("a target_sources declaration on a non-modern
 
 file(WRITE "${fixture_modern_dir}/CMakeLists.txt"
 "set(receiver_source_listing \"adapters/legacy/LegacyProtocolReceiver.cpp\")\n"
-"set(documentation \"add_library(example adapters/legacy/LegacyProtocolReceiver.cpp)\")\n")
+"set(documentation \"add_library(example adapters/legacy/LegacyProtocolReceiver.cpp)\")\n"
+"set(multiline_documentation \"\n"
+"add_library(example\n"
+"  adapters/legacy/LegacyProtocolReceiver.cpp\n"
+")\n"
+"\")\n")
 execute_process(
 	COMMAND "${CMAKE_COMMAND}"
 		"-DMUMBLE_CMAKE_FILE=${fixture_mumble_file}"
