@@ -11,6 +11,7 @@ set(MODERN_LINK_DEPENDENCY_FIXTURE_DIR "${CMAKE_CURRENT_BINARY_DIR}/forbidden-li
 set(MODERN_LINK_DEPENDENCY_FIXTURE_BUILD_DIR "${MODERN_LINK_DEPENDENCY_FIXTURE_DIR}/build")
 set(MODERN_LINK_DEPENDENCY_CONTROL_DIR "${CMAKE_CURRENT_BINARY_DIR}/linker-flag-control-fixture")
 set(MODERN_LINK_DEPENDENCY_CONTROL_BUILD_DIR "${MODERN_LINK_DEPENDENCY_CONTROL_DIR}/build")
+set(LEGACY_PROTOCOL_CONTEXT_FIXTURE_DIR "${CMAKE_CURRENT_BINARY_DIR}/legacy-protocol-context-fixture")
 
 file(MAKE_DIRECTORY "${MODERN_DEPENDENCY_FIXTURE_DIR}/contracts")
 file(WRITE "${MODERN_DEPENDENCY_FIXTURE_FILE}" "#include <QtWidgets/QWidget>\n")
@@ -60,8 +61,17 @@ add_test(
 	NAME TestLegacyProtocolReceiverCompilationContext
 	COMMAND "${CMAKE_COMMAND}"
 		"-DMUMBLE_CMAKE_FILE=${CMAKE_CURRENT_LIST_DIR}/../../mumble/CMakeLists.txt"
-		"-DMODERN_CMAKE_FILE=${CMAKE_CURRENT_LIST_DIR}/../../mumble/modern/CMakeLists.txt"
+		"-DMODERN_SOURCE_DIR=${CMAKE_CURRENT_LIST_DIR}/../../mumble/modern"
 		-P "${CMAKE_CURRENT_LIST_DIR}/verify_legacy_protocol_receiver_context.cmake"
+)
+
+add_test(
+	NAME TestLegacyProtocolReceiverCompilationContextRejectsModernTarget
+	COMMAND "${CMAKE_COMMAND}"
+		"-DCONTEXT_VERIFIER=${CMAKE_CURRENT_LIST_DIR}/verify_legacy_protocol_receiver_context.cmake"
+		"-DMUMBLE_CMAKE_FILE=${CMAKE_CURRENT_LIST_DIR}/../../mumble/CMakeLists.txt"
+		"-DFIXTURE_DIR=${LEGACY_PROTOCOL_CONTEXT_FIXTURE_DIR}"
+		-P "${CMAKE_CURRENT_LIST_DIR}/verify_legacy_protocol_receiver_context_fixture.cmake"
 )
 
 add_executable(TestModernClientBoundaryThreadAssertion ConnectionStoreThreadAssertion.cpp)
