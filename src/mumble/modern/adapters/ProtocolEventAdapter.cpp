@@ -13,6 +13,7 @@
 #include <QThread>
 #include <QtGlobal>
 
+#include <limits>
 #include <utility>
 
 namespace mumble::modern::adapters {
@@ -61,7 +62,12 @@ bool ProtocolEventAdapter::parseAndDispatch(const ControlMessageEnvelope &envelo
 #define PROCESS_MUMBLE_TCP_MESSAGE(name, value)                                                                  \
 	case static_cast< quint32 >(Mumble::Protocol::TCPMessageType::name): {                                        \
 		MumbleProto::name message;                                                                                  \
-		if (!message.ParseFromArray(envelope.payload().constData(), envelope.payload().size())) {                   \
+		const qsizetype payloadSize = envelope.payload().size();                                                    \
+		if (payloadSize > std::numeric_limits< int >::max()) {                                                      \
+			reportDiagnostic(envelope, QStringLiteral("Control message payload exceeds protobuf parser size limit"));   \
+			return false;                                                                                              \
+		}                                                                                                            \
+		if (!message.ParseFromArray(envelope.payload().constData(), static_cast< int >(payloadSize))) {              \
 			reportDiagnostic(envelope, QStringLiteral("Unable to parse ") + QStringLiteral(#name) + QStringLiteral(" control message")); \
 			return false;                                                                                              \
 		}                                                                                                            \

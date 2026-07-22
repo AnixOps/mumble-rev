@@ -14,6 +14,7 @@
 #include "Mumble.pb.h"
 #include "MumbleProtocol.h"
 
+#include <limits>
 #include <string>
 
 namespace {
@@ -51,6 +52,7 @@ class TestModernProtocolAdapter : public QObject {
 private slots:
 	void dispatchesValidControlProtobufToInstalledReceiver();
 	void diagnosesMalformedControlProtobufWithoutReceiverDispatch();
+	void diagnosesOversizeControlProtobufWithoutReceiverDispatch();
 	void preservesControlDeliveryOrderAndDiscardsCancelledAttempt();
 };
 
@@ -101,6 +103,36 @@ void TestModernProtocolAdapter::diagnosesMalformedControlProtobufWithoutReceiver
 	QCOMPARE(diagnostic.attempt, attempt);
 	QCOMPARE(diagnostic.receiveSequence, 1ULL);
 	QVERIFY(diagnostic.reason.contains(QStringLiteral("Version")));
+}
+
+void TestModernProtocolAdapter::diagnosesOversizeControlProtobufWithoutReceiverDispatch() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	ProtocolMessageReceiverSpy receiver;
+	int callbackCount = 0;
+	adapters::ProtocolEventAdapter adapter([&callbackCount](const adapters::ControlMessageEnvelope &) { ++callbackCount; });
+	adapter.setReceiver(&receiver);
+	QSignalSpy diagnosticSpy(&adapter, &adapters::ProtocolEventAdapter::protocolDiagnostic);
+	const ConnectionAttemptId attempt { 8 };
+	adapter.setActiveAttempt(attempt);
+
+	if (std::numeric_limits< qsizetype >::max() <= std::numeric_limits< int >::max()) {
+		QSKIP("The platform cannot represent a QByteArray larger than protobuf's int size parameter");
+	}
+	static const char payloadByte = '\0';
+	const QByteArray oversizePayload = QByteArray::fromRawData(
+		&payloadByte, static_cast< qsizetype >(std::numeric_limits< int >::max()) + 1);
+	QVERIFY(!adapter.receive(adapters::ControlMessageEnvelope(
+		static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version), oversizePayload, attempt, 1)));
+	QCOMPARE(receiver.dispatchCount, 0);
+	QCOMPARE(callbackCount, 0);
+	QCOMPARE(diagnosticSpy.count(), 1);
+	const adapters::ProtocolDiagnostic diagnostic = qvariant_cast< adapters::ProtocolDiagnostic >(diagnosticSpy.takeFirst().at(0));
+	QCOMPARE(diagnostic.messageType, static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version));
+	QCOMPARE(diagnostic.attempt, attempt);
+	QCOMPARE(diagnostic.receiveSequence, 1ULL);
+	QVERIFY(diagnostic.reason.contains(QStringLiteral("size limit")));
 }
 
 void TestModernProtocolAdapter::preservesControlDeliveryOrderAndDiscardsCancelledAttempt() {
