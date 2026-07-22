@@ -74,3 +74,29 @@ if(NOT verifier_result EQUAL 0)
 	message(FATAL_ERROR
 		"The legacy receiver context verifier rejected a non-target source listing:\n${verifier_output}\n${verifier_error}")
 endif()
+
+file(WRITE "${fixture_modern_dir}/CMakeLists.txt"
+"#[[\n"
+"add_library(commented_target STATIC\n"
+"  adapters/legacy/LegacyProtocolReceiver.cpp\n"
+")\n"
+"]]\n"
+"#[=[\n"
+"target_sources(commented_target PRIVATE adapters/legacy/LegacyProtocolReceiver.cpp)\n"
+"]=]\n"
+"set(bracket_documentation [=[\n"
+"add_executable(documented_target adapters/legacy/LegacyProtocolReceiver.cpp)\n"
+"]=])\n")
+execute_process(
+	COMMAND "${CMAKE_COMMAND}"
+		"-DMUMBLE_CMAKE_FILE=${fixture_mumble_file}"
+		"-DMODERN_SOURCE_DIR=${fixture_modern_dir}"
+		-P "${CONTEXT_VERIFIER}"
+	RESULT_VARIABLE verifier_result
+	OUTPUT_VARIABLE verifier_output
+	ERROR_VARIABLE verifier_error
+)
+if(NOT verifier_result EQUAL 0)
+	message(FATAL_ERROR
+		"The legacy receiver context verifier rejected bracket comments or arguments:\n${verifier_output}\n${verifier_error}")
+endif()
