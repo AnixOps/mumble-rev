@@ -10,7 +10,13 @@
 namespace mumble::modern::adapters {
 
 LegacyProtocolComposition::LegacyProtocolComposition(MainWindow &mainWindow)
-	: m_receiver(mainWindow), m_adapter([](const ControlMessageEnvelope &) {}) {
+	: m_legacyReceiver(std::make_unique< LegacyProtocolReceiver >(mainWindow)), m_receiver(*m_legacyReceiver),
+	  m_adapter([](const ControlMessageEnvelope &) {}) {
+	m_adapter.setReceiver(&m_receiver);
+}
+
+LegacyProtocolComposition::LegacyProtocolComposition(ProtocolMessageReceiver &receiver)
+	: m_receiver(receiver), m_adapter([](const ControlMessageEnvelope &) {}) {
 	m_adapter.setReceiver(&m_receiver);
 }
 
@@ -22,7 +28,12 @@ void LegacyProtocolComposition::attach(ServerHandler &serverHandler) {
 	QObject::connect(&serverHandler, &ServerHandler::controlMessageReceived, &m_adapter,
 					 &ProtocolEventAdapter::receive, Qt::QueuedConnection);
 	QObject::connect(&serverHandler, &ServerHandler::udpTransportEvent, &m_adapter,
-					 [this](const UdpTransportEvent &event) { m_receiver.present(event); }, Qt::QueuedConnection);
+					 [this](const UdpTransportEvent &event) {
+						 if (m_legacyReceiver) {
+							 m_legacyReceiver->present(event);
+						 }
+					 },
+					 Qt::QueuedConnection);
 }
 
 } // namespace mumble::modern::adapters

@@ -8,6 +8,8 @@
 #include "LegacyProtocolReceiver.h"
 #include "../ProtocolEventAdapter.h"
 
+#include <memory>
+
 class MainWindow;
 class ServerHandler;
 
@@ -16,10 +18,12 @@ namespace mumble::modern::adapters {
 class LegacyProtocolComposition {
 public:
 	explicit LegacyProtocolComposition(MainWindow &mainWindow);
+	explicit LegacyProtocolComposition(ProtocolMessageReceiver &receiver);
 	void attach(ServerHandler &serverHandler);
 
 private:
-	LegacyProtocolReceiver m_receiver;
+	std::unique_ptr< LegacyProtocolReceiver > m_legacyReceiver;
+	ProtocolMessageReceiver &m_receiver;
 	ProtocolEventAdapter m_adapter;
 };
 

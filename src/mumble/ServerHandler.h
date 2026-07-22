@@ -47,6 +47,7 @@ class PacketDataStream;
 class QUdpSocket;
 class QSslSocket;
 class VoiceRecorder;
+class ServerHandlerProtocolTestHarness;
 
 class ServerHandlerMessageEvent : public QEvent {
 public:
@@ -75,6 +76,7 @@ class ServerHandler : public QThread {
 private:
 	Q_OBJECT
 	Q_DISABLE_COPY(ServerHandler)
+	friend class ServerHandlerProtocolTestHarness;
 
 	Database *database;
 
@@ -83,6 +85,7 @@ private:
 
 	bool isAborted();
 	void changeState(ServerHandlerState state);
+	void startConnectionAttempt();
 
 	ServerHandlerState m_state = ServerHandlerState::Idle;
 	quint64 m_nextConnectionAttempt = 0;
@@ -151,6 +154,10 @@ public:
 		accTCP, accUDP, accClean;
 
 	ServerHandler();
+	// This constructor exists solely for the focused protocol handoff test. It
+	// intentionally does not initialize a database, TLS, Global, or sockets.
+	struct ProtocolTestMode {};
+	explicit ServerHandler(ProtocolTestMode);
 	~ServerHandler();
 	void setConnectionInfo(const QString &host, unsigned short port, const QString &username, const QString &pw);
 	void getConnectionInfo(QString &host, unsigned short &port, QString &username, QString &pw) const;
@@ -242,5 +249,13 @@ public slots:
 };
 
 using ServerHandlerPtr = std::shared_ptr< ServerHandler >;
+
+class ServerHandlerProtocolTestHarness {
+public:
+	static void startAttempt(ServerHandler &handler);
+	static void receiveControlMessage(ServerHandler &handler, Mumble::Protocol::TCPMessageType type,
+		const QByteArray &payload);
+	static void cancelAttempt(ServerHandler &handler);
+};
 
 #endif

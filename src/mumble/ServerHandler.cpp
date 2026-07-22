@@ -67,6 +67,19 @@
 int ServerHandler::nextConnectionID = -1;
 QMutex ServerHandler::nextConnectionIDMutex;
 
+namespace {
+
+void registerModernProtocolMetaTypes() {
+	qRegisterMetaType< mumble::modern::contracts::ConnectionAttemptId >(
+		"mumble::modern::contracts::ConnectionAttemptId");
+	qRegisterMetaType< mumble::modern::adapters::ControlMessageEnvelope >(
+		"mumble::modern::adapters::ControlMessageEnvelope");
+	qRegisterMetaType< mumble::modern::adapters::UdpTransportEvent >(
+		"mumble::modern::adapters::UdpTransportEvent");
+}
+
+} // namespace
+
 ServerHandlerMessageEvent::ServerHandlerMessageEvent(const QByteArray &msg, Mumble::Protocol::TCPMessageType type,
 													 bool flush)
 	: QEvent(static_cast< QEvent::Type >(SERVERSEND_EVENT)) {
@@ -119,12 +132,7 @@ ServerHandler::ServerHandler() : database(new Database(QLatin1String("ServerHand
 	tConnectionTimeoutTimer = nullptr;
 	m_version               = Version::UNKNOWN;
 	iInFlightTCPPings       = 0;
-	qRegisterMetaType< mumble::modern::contracts::ConnectionAttemptId >(
-		"mumble::modern::contracts::ConnectionAttemptId");
-	qRegisterMetaType< mumble::modern::adapters::ControlMessageEnvelope >(
-		"mumble::modern::adapters::ControlMessageEnvelope");
-	qRegisterMetaType< mumble::modern::adapters::UdpTransportEvent >(
-		"mumble::modern::adapters::UdpTransportEvent");
+	registerModernProtocolMetaTypes();
 
 	// assign connection ID
 	{
@@ -173,6 +181,23 @@ ServerHandler::ServerHandler() : database(new Database(QLatin1String("ServerHand
 
 	QObject::connect(this, &ServerHandler::pingRequested, this, &ServerHandler::sendPingInternal, Qt::QueuedConnection);
 	QObject::connect(this, &ServerHandler::abortRequested, this, &ServerHandler::abortConnection);
+}
+
+ServerHandler::ServerHandler(ProtocolTestMode) : database(nullptr) {
+	cConnection.reset();
+	qusUdp                  = nullptr;
+	qtsSock                 = nullptr;
+	bStrong                 = false;
+	usPort                  = 0;
+	bUdp                    = true;
+	tConnectionTimeoutTimer = nullptr;
+	m_version               = Version::UNKNOWN;
+	iInFlightTCPPings       = 0;
+#ifdef Q_OS_WIN
+	hQoS                    = nullptr;
+	dwFlowUDP               = 0;
+#endif
+	registerModernProtocolMetaTypes();
 }
 
 ServerHandler::~ServerHandler() {
@@ -229,6 +254,12 @@ void ServerHandler::cancelActiveConnectionAttempt() {
 	emit connectionAttemptCancelled(m_activeConnectionAttempt.value());
 	m_activeConnectionAttempt.reset();
 	m_nextReceiveSequence = 0;
+}
+
+void ServerHandler::startConnectionAttempt() {
+	m_activeConnectionAttempt = mumble::modern::contracts::ConnectionAttemptId { ++m_nextConnectionAttempt };
+	m_nextReceiveSequence    = 0;
+	emit connectionAttemptStarted(m_activeConnectionAttempt.value());
 }
 
 bool ServerHandler::isAborted() {
@@ -428,9 +459,7 @@ void ServerHandler::hostnameResolved() {
 }
 
 void ServerHandler::run() {
-	m_activeConnectionAttempt = mumble::modern::contracts::ConnectionAttemptId { ++m_nextConnectionAttempt };
-	m_nextReceiveSequence    = 0;
-	emit connectionAttemptStarted(m_activeConnectionAttempt.value());
+	startConnectionAttempt();
 
 	// Resolve the hostname...
 
@@ -751,6 +780,19 @@ void ServerHandler::disconnect() {
 	// Change the state of this connection to "aborted", but use the thread of
 	// the event loop.
 	emit abortRequested();
+}
+
+void ServerHandlerProtocolTestHarness::startAttempt(ServerHandler &handler) {
+	handler.startConnectionAttempt();
+}
+
+void ServerHandlerProtocolTestHarness::receiveControlMessage(ServerHandler &handler,
+	Mumble::Protocol::TCPMessageType type, const QByteArray &payload) {
+	handler.message(type, payload);
+}
+
+void ServerHandlerProtocolTestHarness::cancelAttempt(ServerHandler &handler) {
+	handler.cancelActiveConnectionAttempt();
 }
 
 void ServerHandler::serverConnectionClosed(QAbstractSocket::SocketError err, const QString &reason) {
