@@ -5,22 +5,18 @@
 
 #pragma once
 
-#include "../ProtocolMessageReceiver.h"
-
-class MainWindow;
+#include "Mumble.pb.h"
+#include "MumbleProtocol.h"
 
 namespace mumble::modern::adapters {
 
-class LegacyProtocolReceiver : public ProtocolMessageReceiver {
+class ProtocolMessageReceiver {
 public:
-	explicit LegacyProtocolReceiver(MainWindow &mainWindow);
+	virtual ~ProtocolMessageReceiver() = default;
 
-#define PROCESS_MUMBLE_TCP_MESSAGE(name, value) void dispatch(const MumbleProto::name &message) override;
+#define PROCESS_MUMBLE_TCP_MESSAGE(name, value) virtual void dispatch(const MumbleProto::name &message) = 0;
 	MUMBLE_ALL_TCP_MESSAGES
 #undef PROCESS_MUMBLE_TCP_MESSAGE
-
-private:
-	MainWindow &m_mainWindow;
 };
 
 } // namespace mumble::modern::adapters

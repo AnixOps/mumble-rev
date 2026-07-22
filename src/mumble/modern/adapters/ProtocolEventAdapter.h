@@ -18,7 +18,7 @@ class QThread;
 
 namespace mumble::modern::adapters {
 
-class LegacyProtocolReceiver;
+class ProtocolMessageReceiver;
 
 struct ProtocolDiagnostic {
 	quint32 messageType;
@@ -37,7 +37,7 @@ public:
 
 	void setActiveAttempt(contracts::ConnectionAttemptId attempt);
 	void cancelAttempt(contracts::ConnectionAttemptId attempt);
-	void setLegacyReceiver(LegacyProtocolReceiver *legacyReceiver);
+	void setReceiver(ProtocolMessageReceiver *receiver);
 	bool receive(const ControlMessageEnvelope &envelope);
 
 signals:
@@ -50,7 +50,7 @@ private:
 
 	const QThread *const m_ownerThread;
 	ParsedMessageCallback m_parsedMessageCallback;
-	LegacyProtocolReceiver *m_legacyReceiver = nullptr;
+	ProtocolMessageReceiver *m_receiver = nullptr;
 	std::optional< contracts::ConnectionAttemptId > m_activeAttempt;
 	std::optional< quint64 > m_lastAcceptedSequence;
 };

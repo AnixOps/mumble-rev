@@ -45,6 +45,11 @@ target_link_libraries(TestModernClientBoundary PRIVATE Qt6::Test mumble_modern_a
 	mumble_modern_protocol_adapter mumble_modern_testing)
 add_test(NAME TestModernClientBoundary COMMAND TestModernClientBoundary)
 
+add_executable(TestModernProtocolAdapter TestModernProtocolAdapter.cpp)
+set_target_properties(TestModernProtocolAdapter PROPERTIES AUTOMOC ON)
+target_link_libraries(TestModernProtocolAdapter PRIVATE Qt6::Test mumble_modern_protocol_adapter)
+add_test(NAME TestModernProtocolAdapter COMMAND TestModernProtocolAdapter)
+
 add_executable(TestModernClientBoundaryThreadAssertion ConnectionStoreThreadAssertion.cpp)
 target_link_libraries(TestModernClientBoundaryThreadAssertion PRIVATE Qt6::Core mumble_modern_application)
 

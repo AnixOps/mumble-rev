@@ -5,7 +5,7 @@
 
 #include "ProtocolEventAdapter.h"
 
-#include "legacy/LegacyProtocolReceiver.h"
+#include "ProtocolMessageReceiver.h"
 
 #include "Mumble.pb.h"
 #include "MumbleProtocol.h"
@@ -36,9 +36,9 @@ void ProtocolEventAdapter::cancelAttempt(contracts::ConnectionAttemptId attempt)
 	}
 }
 
-void ProtocolEventAdapter::setLegacyReceiver(LegacyProtocolReceiver *legacyReceiver) {
+void ProtocolEventAdapter::setReceiver(ProtocolMessageReceiver *receiver) {
 	assertOnOwnerThread();
-	m_legacyReceiver = legacyReceiver;
+	m_receiver = receiver;
 }
 
 bool ProtocolEventAdapter::receive(const ControlMessageEnvelope &envelope) {
@@ -62,8 +62,8 @@ bool ProtocolEventAdapter::parseAndDispatch(const ControlMessageEnvelope &envelo
 			reportDiagnostic(envelope, QStringLiteral("Unable to parse ") + QStringLiteral(#name) + QStringLiteral(" control message")); \
 			return false;                                                                                              \
 		}                                                                                                            \
-		if (m_legacyReceiver != nullptr) {                                                                          \
-			m_legacyReceiver->dispatch(message);                                                                      \
+		if (m_receiver != nullptr) {                                                                                \
+			m_receiver->dispatch(message);                                                                            \
 		}                                                                                                            \
 		if (m_parsedMessageCallback) {                                                                              \
 			m_parsedMessageCallback(envelope);                                                                        \
