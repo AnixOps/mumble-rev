@@ -30,3 +30,13 @@ add_test(
 	NAME TestPhase0BaselineValidationSecret
 	COMMAND "${BASH_EXECUTABLE}" "${PHASE0_BASELINE_VALIDATOR}" "${CMAKE_CURRENT_SOURCE_DIR}/contains-secret.csv" "${CMAKE_CURRENT_SOURCE_DIR}/secrets.env")
 set_tests_properties(TestPhase0BaselineValidationSecret PROPERTIES WILL_FAIL TRUE)
+
+add_test(
+	NAME TestPhase0BaselineValidationQuotedSecret
+	COMMAND "${BASH_EXECUTABLE}" "${PHASE0_BASELINE_VALIDATOR}" "${CMAKE_CURRENT_SOURCE_DIR}/valid.csv" "${CMAKE_CURRENT_SOURCE_DIR}/quoted-secret.env")
+set_tests_properties(TestPhase0BaselineValidationQuotedSecret PROPERTIES WILL_FAIL TRUE)
+
+add_test(
+	NAME TestPhase0BaselineValidationHeaderOnly
+	COMMAND "${BASH_EXECUTABLE}" "${PHASE0_BASELINE_VALIDATOR}" "${CMAKE_CURRENT_SOURCE_DIR}/header-only.csv")
+set_tests_properties(TestPhase0BaselineValidationHeaderOnly PROPERTIES WILL_FAIL TRUE)

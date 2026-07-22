@@ -33,6 +33,7 @@ if [[ -n "$environment_path" ]]; then
 		line=${line%$'\r'}
 		if [[ "$line" =~ ^(MUMBLE_PHASE0_SERVER_ADDRESS|MUMBLE_PHASE0_USERNAME|MUMBLE_PHASE0_PASSWORD|MUMBLE_PHASE0_CERTIFICATE_PATH)=(.*)$ ]]; then
 			secret=${BASH_REMATCH[2]}
+			[[ "$secret" != \"* && "$secret" != \'* ]] || fail 'quoted values are unsupported in environment assignments'
 			if [[ -n "$secret" ]]; then
 				secrets+=("$secret")
 			fi
@@ -47,8 +48,10 @@ header=${header%$'\r'}
 [[ "$header" == "$EXPECTED_HEADER" ]] || fail 'CSV header does not match the required schema'
 
 line_number=1
+data_row_count=0
 while IFS= read -r line || [[ -n "$line" ]]; do
 	((++line_number))
+	((++data_row_count))
 	line=${line%$'\r'}
 
 	comma_count=${line//[^,]/}
@@ -62,6 +65,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 	[[ "$display_scale_percent" =~ ^[0-9]+$ ]] || fail "line $line_number has a non-integer display scale"
 	[[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]] || fail "line $line_number has a non-decimal metric value"
 done < <(tail -n +2 "$csv_path")
+
+(( data_row_count > 0 )) || fail 'CSV must contain at least one data row'
 
 for secret in "${secrets[@]}"; do
 	if grep -Fq -- "$secret" "$csv_path"; then

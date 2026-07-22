@@ -12,9 +12,13 @@ enable a modern-client path, change production behaviour, or authorize a Phase
 
 Run the procedure on Windows 10 and Windows 11 at 100%, 150%, and 200% display
 scaling. Use a Visual Studio **x64 Native Tools Command Prompt**; confirm that
-it reports an x64 environment before configuring. Install Ninja, CMake, and the
-pinned Mumble vcpkg dependency set described in the existing
+it reports an x64 environment before configuring. Install Git for Windows
+(including Git Bash) on `PATH`, Ninja, CMake, and the pinned Mumble vcpkg
+dependency set described in the existing
 [static-build instructions](../build-instructions/build_static.md).
+
+Git Bash is required by the Phase 0 CTest validator and by the direct validator
+command below.
 
 Set `VCPKG_ROOT` to the prepared vcpkg directory. Do not place credentials,
 private certificates, personal server addresses, or recorded audio under source
