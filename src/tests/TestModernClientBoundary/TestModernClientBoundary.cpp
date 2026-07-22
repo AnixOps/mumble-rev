@@ -196,8 +196,22 @@ void TestModernClientBoundary::protocolEventAdapterAcceptsMonotonicSequenceForAc
 		acceptedSequences.append(envelope.receiveSequence());
 	});
 	adapter.setActiveAttempt(ConnectionAttemptId { 8 });
-	adapter.receive(adapters::ControlMessageEnvelope(4, QByteArray("one"), ConnectionAttemptId { 8 }, 1));
-	adapter.receive(adapters::ControlMessageEnvelope(5, QByteArray("two"), ConnectionAttemptId { 8 }, 2));
+	MumbleProto::Version version;
+	version.set_version_v1(0x010500);
+	std::string serializedVersion;
+	QVERIFY(version.SerializeToString(&serializedVersion));
+
+	MumbleProto::ServerConfig serverConfig;
+	serverConfig.set_max_bandwidth(128000);
+	std::string serializedServerConfig;
+	QVERIFY(serverConfig.SerializeToString(&serializedServerConfig));
+
+	QVERIFY(adapter.receive(adapters::ControlMessageEnvelope(
+		static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version), QByteArray::fromStdString(serializedVersion),
+		ConnectionAttemptId { 8 }, 1)));
+	QVERIFY(adapter.receive(adapters::ControlMessageEnvelope(
+		static_cast< quint32 >(Mumble::Protocol::TCPMessageType::ServerConfig),
+		QByteArray::fromStdString(serializedServerConfig), ConnectionAttemptId { 8 }, 2)));
 
 	const QVector< quint64 > expectedSequences { 1, 2 };
 	QCOMPARE(acceptedSequences, expectedSequences);
