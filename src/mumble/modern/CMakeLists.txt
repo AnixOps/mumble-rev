@@ -28,8 +28,11 @@ set_target_properties(mumble_modern_protocol_adapter PROPERTIES AUTOMOC ON)
 target_link_libraries(mumble_modern_protocol_adapter PUBLIC mumble_modern_contracts shared Qt6::Core)
 target_include_directories(mumble_modern_protocol_adapter PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_library(mumble_modern_legacy_protocol_receiver STATIC adapters/legacy/LegacyProtocolReceiver.cpp)
-target_link_libraries(mumble_modern_legacy_protocol_receiver PRIVATE mumble_modern_protocol_adapter)
+add_library(mumble_modern_legacy_protocol_receiver STATIC
+	adapters/legacy/LegacyProtocolComposition.cpp
+	adapters/legacy/LegacyProtocolReceiver.cpp
+)
+target_link_libraries(mumble_modern_legacy_protocol_receiver PUBLIC mumble_modern_protocol_adapter)
 target_include_directories(mumble_modern_legacy_protocol_receiver PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_library(mumble_modern_testing STATIC testing/ModernTesting.cpp)

@@ -9,6 +9,8 @@
 
 #include <QtTest/QtTest>
 
+#include <QVector>
+
 #include "Mumble.pb.h"
 #include "MumbleProtocol.h"
 
@@ -19,12 +21,26 @@ namespace {
 class ProtocolMessageReceiverSpy : public mumble::modern::adapters::ProtocolMessageReceiver {
 public:
 #define PROCESS_MUMBLE_TCP_MESSAGE(name, value) \
-	void dispatch(const MumbleProto::name &) override { ++dispatchCount; lastMessageType = Mumble::Protocol::TCPMessageType::name; }
+	void dispatch(const MumbleProto::name &) override { \
+		++dispatchCount; \
+		lastMessageType = Mumble::Protocol::TCPMessageType::name; \
+		dispatchedMessageTypes.append(lastMessageType); \
+	}
 	MUMBLE_ALL_TCP_MESSAGES
 #undef PROCESS_MUMBLE_TCP_MESSAGE
 
 	int dispatchCount = 0;
 	Mumble::Protocol::TCPMessageType lastMessageType = Mumble::Protocol::TCPMessageType::Version;
+	QVector< Mumble::Protocol::TCPMessageType > dispatchedMessageTypes;
+};
+
+class ProtocolEnvelopeProducer : public QObject {
+	Q_OBJECT
+
+signals:
+	void attemptStarted(mumble::modern::contracts::ConnectionAttemptId attempt);
+	void attemptCancelled(mumble::modern::contracts::ConnectionAttemptId attempt);
+	void envelopeReceived(const mumble::modern::adapters::ControlMessageEnvelope &envelope);
 };
 
 } // namespace
@@ -35,6 +51,7 @@ class TestModernProtocolAdapter : public QObject {
 private slots:
 	void dispatchesValidControlProtobufToInstalledReceiver();
 	void diagnosesMalformedControlProtobufWithoutReceiverDispatch();
+	void preservesControlDeliveryOrderAndDiscardsCancelledAttempt();
 };
 
 void TestModernProtocolAdapter::dispatchesValidControlProtobufToInstalledReceiver() {
@@ -84,6 +101,52 @@ void TestModernProtocolAdapter::diagnosesMalformedControlProtobufWithoutReceiver
 	QCOMPARE(diagnostic.attempt, attempt);
 	QCOMPARE(diagnostic.receiveSequence, 1ULL);
 	QVERIFY(diagnostic.reason.contains(QStringLiteral("Version")));
+}
+
+void TestModernProtocolAdapter::preservesControlDeliveryOrderAndDiscardsCancelledAttempt() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	MumbleProto::Version version;
+	version.set_version(0x010500);
+	std::string serializedVersion;
+	QVERIFY(version.SerializeToString(&serializedVersion));
+
+	MumbleProto::ServerConfig serverConfig;
+	serverConfig.set_max_bandwidth(128000);
+	std::string serializedServerConfig;
+	QVERIFY(serverConfig.SerializeToString(&serializedServerConfig));
+
+	ProtocolMessageReceiverSpy receiver;
+	adapters::ProtocolEventAdapter adapter([](const adapters::ControlMessageEnvelope &) {});
+	adapter.setReceiver(&receiver);
+	ProtocolEnvelopeProducer producer;
+	QObject::connect(&producer, &ProtocolEnvelopeProducer::attemptStarted, &adapter,
+					 &adapters::ProtocolEventAdapter::setActiveAttempt, Qt::QueuedConnection);
+	QObject::connect(&producer, &ProtocolEnvelopeProducer::attemptCancelled, &adapter,
+					 &adapters::ProtocolEventAdapter::cancelAttempt, Qt::QueuedConnection);
+	QObject::connect(&producer, &ProtocolEnvelopeProducer::envelopeReceived, &adapter,
+					 &adapters::ProtocolEventAdapter::receive, Qt::QueuedConnection);
+	const ConnectionAttemptId attempt { 9 };
+	emit producer.attemptStarted(attempt);
+
+	emit producer.envelopeReceived(adapters::ControlMessageEnvelope(
+		static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version), QByteArray::fromStdString(serializedVersion), attempt, 1));
+	emit producer.envelopeReceived(adapters::ControlMessageEnvelope(
+		static_cast< quint32 >(Mumble::Protocol::TCPMessageType::ServerConfig),
+		QByteArray::fromStdString(serializedServerConfig), attempt, 2));
+	QTRY_COMPARE(receiver.dispatchCount, 2);
+	QCOMPARE(receiver.dispatchedMessageTypes.size(), 2);
+	QCOMPARE(static_cast< quint32 >(receiver.dispatchedMessageTypes.at(0)),
+		 static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version));
+	QCOMPARE(static_cast< quint32 >(receiver.dispatchedMessageTypes.at(1)),
+		 static_cast< quint32 >(Mumble::Protocol::TCPMessageType::ServerConfig));
+
+	emit producer.attemptCancelled(attempt);
+	emit producer.envelopeReceived(adapters::ControlMessageEnvelope(
+		static_cast< quint32 >(Mumble::Protocol::TCPMessageType::Version), QByteArray::fromStdString(serializedVersion), attempt, 3));
+	QTest::qWait(20);
+	QCOMPARE(receiver.dispatchCount, 2);
 }
 
 QTEST_MAIN(TestModernProtocolAdapter)

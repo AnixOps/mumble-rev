@@ -43,6 +43,10 @@ class VoiceRecorderDialog;
 class PositionalAudioViewer;
 class PTTButtonWidget;
 
+namespace mumble::modern::adapters {
+class LegacyProtocolComposition;
+}
+
 namespace Search {
 class SearchDialog;
 }
@@ -166,6 +170,7 @@ protected:
 	Usage uUsage;
 	QTimer *qtReconnect;
 	std::unique_ptr< NotificationSoundBlocker > m_reconnectSoundBlocker;
+	std::unique_ptr< mumble::modern::adapters::LegacyProtocolComposition > m_legacyProtocolComposition;
 
 	QList< QAction * > qlServerActions;
 	QList< QAction * > qlChannelActions;
@@ -449,6 +454,7 @@ public:
 #define PROCESS_MUMBLE_TCP_MESSAGE(name, value) void msg##name(const MumbleProto::name &);
 	MUMBLE_ALL_TCP_MESSAGES
 #undef PROCESS_MUMBLE_TCP_MESSAGE
+	void presentTransportEvent(QString message);
 	void removeContextAction(const MumbleProto::ContextActionModify &msg);
 	/// Logs a message that an action could not be saved permanently because
 	/// the user has no certificate and can't be reliably identified.
@@ -458,6 +464,7 @@ public:
 	void logChangeNotPermanent(const QString &actionName, ClientUser *const p) const;
 
 	void openServerConnectDialog(bool autoconnect = false);
+	void setLegacyProtocolComposition(std::unique_ptr< mumble::modern::adapters::LegacyProtocolComposition > composition);
 	void disconnectFromServer();
 	void addServerAsFavorite();
 	void openServerInformationDialog();

@@ -16,4 +16,8 @@ LegacyProtocolReceiver::LegacyProtocolReceiver(MainWindow &mainWindow) : m_mainW
 	MUMBLE_ALL_TCP_MESSAGES
 #undef PROCESS_MUMBLE_TCP_MESSAGE
 
+void LegacyProtocolReceiver::present(const UdpTransportEvent &event) {
+	m_mainWindow.presentTransportEvent(event.message);
+}
+
 } // namespace mumble::modern::adapters

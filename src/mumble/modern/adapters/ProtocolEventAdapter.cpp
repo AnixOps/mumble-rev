@@ -19,7 +19,9 @@ namespace mumble::modern::adapters {
 
 ProtocolEventAdapter::ProtocolEventAdapter(ParsedMessageCallback parsedMessageCallback, QObject *parent)
 	: QObject(parent), m_ownerThread(QThread::currentThread()), m_parsedMessageCallback(std::move(parsedMessageCallback)) {
+	qRegisterMetaType< ControlMessageEnvelope >("mumble::modern::adapters::ControlMessageEnvelope");
 	qRegisterMetaType< ProtocolDiagnostic >("mumble::modern::adapters::ProtocolDiagnostic");
+	qRegisterMetaType< UdpTransportEvent >("mumble::modern::adapters::UdpTransportEvent");
 }
 
 void ProtocolEventAdapter::setActiveAttempt(contracts::ConnectionAttemptId attempt) {

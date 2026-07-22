@@ -35,8 +35,11 @@
 #include "MumbleProtocol.h"
 #include "ServerAddress.h"
 #include "Timer.h"
+#include "modern/adapters/ControlMessageEnvelope.h"
+#include "modern/adapters/ProtocolEventAdapter.h"
 
 #include <memory>
+#include <optional>
 
 class Connection;
 class Database;
@@ -82,6 +85,9 @@ private:
 	void changeState(ServerHandlerState state);
 
 	ServerHandlerState m_state = ServerHandlerState::Idle;
+	quint64 m_nextConnectionAttempt = 0;
+	quint64 m_nextReceiveSequence = 0;
+	std::optional< mumble::modern::contracts::ConnectionAttemptId > m_activeConnectionAttempt;
 
 protected:
 	QString qsHostName;
@@ -111,6 +117,7 @@ protected:
 	QMutex qmUdp;
 
 	void handleVoicePacket(const Mumble::Protocol::AudioData &audioData);
+	void cancelActiveConnectionAttempt();
 
 public:
 	Timer tTimestamp;
@@ -214,6 +221,10 @@ signals:
 	void connected();
 	void pingRequested();
 	void abortRequested();
+	void connectionAttemptStarted(mumble::modern::contracts::ConnectionAttemptId attempt);
+	void connectionAttemptCancelled(mumble::modern::contracts::ConnectionAttemptId attempt);
+	void controlMessageReceived(const mumble::modern::adapters::ControlMessageEnvelope &envelope);
+	void udpTransportEvent(const mumble::modern::adapters::UdpTransportEvent &event);
 protected slots:
 	void message(Mumble::Protocol::TCPMessageType type, const QByteArray &);
 	void serverConnectionConnected();

@@ -8,6 +8,7 @@
 #include "contracts/ClientTypes.h"
 
 #include <QByteArray>
+#include <QMetaType>
 
 #include <utility>
 
@@ -32,3 +33,5 @@ private:
 };
 
 } // namespace mumble::modern::adapters
+
+Q_DECLARE_METATYPE(mumble::modern::adapters::ControlMessageEnvelope)

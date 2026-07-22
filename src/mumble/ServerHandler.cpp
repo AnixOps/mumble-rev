@@ -119,6 +119,12 @@ ServerHandler::ServerHandler() : database(new Database(QLatin1String("ServerHand
 	tConnectionTimeoutTimer = nullptr;
 	m_version               = Version::UNKNOWN;
 	iInFlightTCPPings       = 0;
+	qRegisterMetaType< mumble::modern::contracts::ConnectionAttemptId >(
+		"mumble::modern::contracts::ConnectionAttemptId");
+	qRegisterMetaType< mumble::modern::adapters::ControlMessageEnvelope >(
+		"mumble::modern::adapters::ControlMessageEnvelope");
+	qRegisterMetaType< mumble::modern::adapters::UdpTransportEvent >(
+		"mumble::modern::adapters::UdpTransportEvent");
 
 	// assign connection ID
 	{
@@ -211,7 +217,18 @@ void ServerHandler::changeState(ServerHandlerState state) {
 }
 
 void ServerHandler::abortConnection() {
+	cancelActiveConnectionAttempt();
 	changeState(ServerHandlerState::Aborted);
+}
+
+void ServerHandler::cancelActiveConnectionAttempt() {
+	if (!m_activeConnectionAttempt.has_value()) {
+		return;
+	}
+
+	emit connectionAttemptCancelled(m_activeConnectionAttempt.value());
+	m_activeConnectionAttempt.reset();
+	m_nextReceiveSequence = 0;
 }
 
 bool ServerHandler::isAborted() {
@@ -411,6 +428,10 @@ void ServerHandler::hostnameResolved() {
 }
 
 void ServerHandler::run() {
+	m_activeConnectionAttempt = mumble::modern::contracts::ConnectionAttemptId { ++m_nextConnectionAttempt };
+	m_nextReceiveSequence    = 0;
+	emit connectionAttemptStarted(m_activeConnectionAttempt.value());
+
 	// Resolve the hostname...
 
 	changeState(ServerHandlerState::DNSQuery);
@@ -424,6 +445,7 @@ void ServerHandler::run() {
 			qWarning("ServerHandler: failed to resolve hostname");
 			changeState(ServerHandlerState::DNSFailed);
 			emit error(QAbstractSocket::HostNotFoundError, tr("Unable to resolve hostname"));
+			cancelActiveConnectionAttempt();
 			return;
 		}
 		changeState(ServerHandlerState::DNSResolved);
@@ -431,6 +453,7 @@ void ServerHandler::run() {
 
 	if (isAborted()) {
 		// Connection aborted during DNS resolve...
+		cancelActiveConnectionAttempt();
 		return;
 	}
 
@@ -541,6 +564,7 @@ void ServerHandler::run() {
 		delete qtsSock;
 		delete tConnectionTimeoutTimer;
 	} while (shouldTryNextTargetServer && !qlAddresses.isEmpty());
+	cancelActiveConnectionAttempt();
 }
 
 #ifdef Q_OS_WIN
@@ -693,14 +717,14 @@ void ServerHandler::message(Mumble::Protocol::TCPMessageType type, const QByteAr
 				bUdp = false;
 				if (!NetworkConfig::TcpModeEnabled()) {
 					if ((connection->csCrypt->m_statsRemote.good == 0) && (connection->csCrypt->m_statsLocal.good == 0))
-						Global::get().mw->msgBox(
-							tr("UDP packets cannot be sent to or received from the server. Switching to TCP mode."));
+						emit udpTransportEvent({ mumble::modern::adapters::UdpTransportState::Degraded,
+											 tr("UDP packets cannot be sent to or received from the server. Switching to TCP mode.") });
 					else if (connection->csCrypt->m_statsRemote.good == 0)
-						Global::get().mw->msgBox(
-							tr("UDP packets cannot be sent to the server. Switching to TCP mode."));
+						emit udpTransportEvent({ mumble::modern::adapters::UdpTransportState::Degraded,
+											 tr("UDP packets cannot be sent to the server. Switching to TCP mode.") });
 					else
-						Global::get().mw->msgBox(
-							tr("UDP packets cannot be received from the server. Switching to TCP mode."));
+						emit udpTransportEvent({ mumble::modern::adapters::UdpTransportState::Degraded,
+											 tr("UDP packets cannot be received from the server. Switching to TCP mode.") });
 
 					database->setUdp(qbaDigest, false);
 				}
@@ -708,16 +732,18 @@ void ServerHandler::message(Mumble::Protocol::TCPMessageType type, const QByteAr
 					   && (connection->csCrypt->m_statsLocal.good > 3)) {
 				bUdp = true;
 				if (!NetworkConfig::TcpModeEnabled()) {
-					Global::get().mw->msgBox(
-						tr("UDP packets can be sent to and received from the server. Switching back to UDP mode."));
+					emit udpTransportEvent({ mumble::modern::adapters::UdpTransportState::Restored,
+										 tr("UDP packets can be sent to and received from the server. Switching back to UDP mode.") });
 
 					database->setUdp(qbaDigest, true);
 				}
 			}
 		}
 	} else {
-		ServerHandlerMessageEvent *shme = new ServerHandlerMessageEvent(qbaMsg, type, false);
-		QApplication::postEvent(Global::get().mw, shme);
+		if (m_activeConnectionAttempt.has_value()) {
+			emit controlMessageReceived(mumble::modern::adapters::ControlMessageEnvelope(
+				static_cast< quint32 >(type), qbaMsg, m_activeConnectionAttempt.value(), ++m_nextReceiveSequence));
+		}
 	}
 }
 
@@ -728,6 +754,7 @@ void ServerHandler::disconnect() {
 }
 
 void ServerHandler::serverConnectionClosed(QAbstractSocket::SocketError err, const QString &reason) {
+	cancelActiveConnectionAttempt();
 	changeState(ServerHandlerState::ConnectionOver);
 
 	Connection *c = cConnection.get();

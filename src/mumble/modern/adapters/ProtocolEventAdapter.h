@@ -27,6 +27,16 @@ struct ProtocolDiagnostic {
 	QString reason;
 };
 
+enum class UdpTransportState {
+	Degraded,
+	Restored
+};
+
+struct UdpTransportEvent {
+	UdpTransportState state;
+	QString message;
+};
+
 class ProtocolEventAdapter : public QObject {
 	Q_OBJECT
 
@@ -58,3 +68,4 @@ private:
 } // namespace mumble::modern::adapters
 
 Q_DECLARE_METATYPE(mumble::modern::adapters::ProtocolDiagnostic)
+Q_DECLARE_METATYPE(mumble::modern::adapters::UdpTransportEvent)

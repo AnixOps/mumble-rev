@@ -5,24 +5,22 @@
 
 #pragma once
 
-#include "../ProtocolMessageReceiver.h"
+#include "LegacyProtocolReceiver.h"
 #include "../ProtocolEventAdapter.h"
 
 class MainWindow;
+class ServerHandler;
 
 namespace mumble::modern::adapters {
 
-class LegacyProtocolReceiver : public ProtocolMessageReceiver {
+class LegacyProtocolComposition {
 public:
-	explicit LegacyProtocolReceiver(MainWindow &mainWindow);
-
-#define PROCESS_MUMBLE_TCP_MESSAGE(name, value) void dispatch(const MumbleProto::name &message) override;
-	MUMBLE_ALL_TCP_MESSAGES
-#undef PROCESS_MUMBLE_TCP_MESSAGE
-	void present(const UdpTransportEvent &event);
+	explicit LegacyProtocolComposition(MainWindow &mainWindow);
+	void attach(ServerHandler &serverHandler);
 
 private:
-	MainWindow &m_mainWindow;
+	LegacyProtocolReceiver m_receiver;
+	ProtocolEventAdapter m_adapter;
 };
 
 } // namespace mumble::modern::adapters
