@@ -9,7 +9,7 @@ namespace mumble::modern::application {
 
 ClientApplication::ClientApplication(contracts::ConnectionPort &connectionPort,
 	contracts::SessionCommandPort &sessionCommandPort)
-	: m_connectionPort(connectionPort), m_sessionCommandPort(sessionCommandPort) {}
+	: m_connectionPort(connectionPort), m_sessionCommandPort(sessionCommandPort), m_connectionService(m_connectionStore) {}
 
 ConnectionStore &ClientApplication::connectionStore() {
 	return m_connectionStore;
@@ -17,6 +17,10 @@ ConnectionStore &ClientApplication::connectionStore() {
 
 const ConnectionStore &ClientApplication::connectionStore() const {
 	return m_connectionStore;
+}
+
+ConnectionService &ClientApplication::connectionService() {
+	return m_connectionService;
 }
 
 contracts::ConnectionPort &ClientApplication::connectionPort() {

@@ -5,7 +5,9 @@
 
 #include "ModernClientBootstrap.h"
 #include "application/ClientApplication.h"
+#include "application/services/ConnectionService.h"
 #include "application/stores/ConnectionStore.h"
+#include "contracts/ConnectionEvent.h"
 #include "contracts/ClientTypes.h"
 #include "contracts/ConnectionSnapshot.h"
 #include "presentation/ConnectionPresentationProbe.h"
@@ -38,6 +40,7 @@ private slots:
 	void protocolEventAdapterRejectsCancelledAttempt();
 	void protocolEventAdapterDispatchesValidControlProtobuf();
 	void protocolEventAdapterDiagnosesMalformedControlProtobuf();
+	void connectionServicePublishesOnlyCurrentOrderedEvents();
 };
 
 void TestModernClientBoundary::strongIdsIncludeTheirValueAndConnectionEpoch() {
@@ -287,6 +290,47 @@ void TestModernClientBoundary::protocolEventAdapterDiagnosesMalformedControlProt
 	QCOMPARE(diagnostic.attempt, attempt);
 	QCOMPARE(diagnostic.receiveSequence, 1ULL);
 	QVERIFY(diagnostic.reason.contains(QStringLiteral("Version")));
+}
+
+void TestModernClientBoundary::connectionServicePublishesOnlyCurrentOrderedEvents() {
+	using namespace mumble::modern;
+	using namespace mumble::modern::contracts;
+
+	testing::FakeConnectionPort connectionPort;
+	testing::FakeSessionCommandPort sessionCommandPort;
+	application::ClientApplication application(connectionPort, sessionCommandPort);
+	QSignalSpy snapshotSpy(&application.connectionStore(), &application::ConnectionStore::snapshotChanged);
+	QSignalSpy gapSpy(&application.connectionStore(), &application::ConnectionStore::sequenceGapDetected);
+	const ConnectionAttemptId firstAttempt { 4 };
+	const ServerTarget firstTarget { QStringLiteral("First"), QStringLiteral("first.example.test"), 64738 };
+
+	QVERIFY(application.connectionService().handle({ firstAttempt, 1, firstTarget }));
+	QVERIFY(application.connectionService().handle(
+		{ firstAttempt, 2, ConnectionPhase::ConnectingTransport, true }));
+	QVERIFY(!application.connectionService().handle(
+		{ ConnectionAttemptId { 3 }, 3, ConnectionPhase::Connected, false }));
+	QVERIFY(!application.connectionService().handle(
+		{ firstAttempt, 4, ConnectionPhase::Authenticating, true }));
+	QCOMPARE(gapSpy.count(), 1);
+	QVERIFY(application.connectionService().handle({ firstAttempt, 3, ConnectionPhase::Authenticating, true }));
+	QVERIFY(application.connectionService().handle({ firstAttempt, 4, ConnectionEpoch { 11 } }));
+
+	const ConnectionSnapshot connectedSnapshot = application.connectionStore().snapshot();
+	QCOMPARE(connectedSnapshot.phase, ConnectionPhase::Connected);
+	QCOMPARE(connectedSnapshot.epoch.value(), ConnectionEpoch { 11 });
+	QCOMPARE(connectedSnapshot.target, firstTarget);
+	QCOMPARE(snapshotSpy.count(), 4);
+
+	const ConnectionAttemptId replacementAttempt { 5 };
+	const ServerTarget replacementTarget { QStringLiteral("Replacement"), QStringLiteral("replacement.example.test"), 64739 };
+	QVERIFY(application.connectionService().handle({ replacementAttempt, 1, replacementTarget }));
+	QVERIFY(!application.connectionService().handle({ firstAttempt, 1, firstTarget }));
+	QVERIFY(!application.connectionService().handle({ firstAttempt, 5, ConnectionEpoch { 12 } }));
+	const ConnectionSnapshot replacementSnapshot = application.connectionStore().snapshot();
+	QCOMPARE(replacementSnapshot.attempt, replacementAttempt);
+	QCOMPARE(replacementSnapshot.phase, ConnectionPhase::Resolving);
+	QVERIFY(!replacementSnapshot.epoch.has_value());
+	QCOMPARE(replacementSnapshot.target, replacementTarget);
 }
 
 QTEST_MAIN(TestModernClientBoundary)
