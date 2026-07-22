@@ -14,7 +14,7 @@ file(WRITE "${MODERN_DEPENDENCY_FIXTURE_FILE}" "#include <QtWidgets/QWidget>\n")
 add_test(
 	NAME TestModernClientBoundaryForbiddenDependency
 	COMMAND "${CMAKE_COMMAND}"
-		"-DMODERN_SOURCE_DIR=${MODERN_DEPENDENCY_FIXTURE_DIR}"
-		-P "${MODERN_DEPENDENCY_VERIFIER}"
+		"-DMODERN_DEPENDENCY_VERIFIER=${MODERN_DEPENDENCY_VERIFIER}"
+		"-DMODERN_DEPENDENCY_FIXTURE_DIR=${MODERN_DEPENDENCY_FIXTURE_DIR}"
+		-P "${CMAKE_CURRENT_LIST_DIR}/verify_dependency_gate_fixture.cmake"
 )
-set_tests_properties(TestModernClientBoundaryForbiddenDependency PROPERTIES WILL_FAIL TRUE)
