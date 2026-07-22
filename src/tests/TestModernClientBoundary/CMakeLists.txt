@@ -53,8 +53,16 @@ add_test(NAME TestModernProtocolAdapter COMMAND TestModernProtocolAdapter)
 add_executable(TestServerHandlerProtocolComposition TestServerHandlerProtocolComposition.cpp)
 set_target_properties(TestServerHandlerProtocolComposition PROPERTIES AUTOMOC ON)
 target_link_libraries(TestServerHandlerProtocolComposition PRIVATE Qt6::Test mumble_client_object_lib
-	mumble_modern_legacy_protocol_receiver)
+	mumble_modern_protocol_adapter)
 add_test(NAME TestServerHandlerProtocolComposition COMMAND TestServerHandlerProtocolComposition)
+
+add_test(
+	NAME TestLegacyProtocolReceiverCompilationContext
+	COMMAND "${CMAKE_COMMAND}"
+		"-DMUMBLE_CMAKE_FILE=${CMAKE_CURRENT_LIST_DIR}/../../mumble/CMakeLists.txt"
+		"-DMODERN_CMAKE_FILE=${CMAKE_CURRENT_LIST_DIR}/../../mumble/modern/CMakeLists.txt"
+		-P "${CMAKE_CURRENT_LIST_DIR}/verify_legacy_protocol_receiver_context.cmake"
+)
 
 add_executable(TestModernClientBoundaryThreadAssertion ConnectionStoreThreadAssertion.cpp)
 target_link_libraries(TestModernClientBoundaryThreadAssertion PRIVATE Qt6::Core mumble_modern_application)
