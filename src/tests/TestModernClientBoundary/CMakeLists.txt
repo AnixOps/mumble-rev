@@ -21,7 +21,7 @@ file(WRITE "${MODERN_LINK_DEPENDENCY_FIXTURE_DIR}/CMakeLists.txt"
 "add_library(Qt6::Widgets INTERFACE IMPORTED)\n"
 "add_library(legacy_ui ALIAS Qt6::Widgets)\n"
 "add_library(mumble_modern_contracts STATIC contracts/ModernContracts.cpp)\n"
-"target_link_libraries(mumble_modern_contracts PUBLIC Qt6::Core legacy_ui)\n"
+"target_link_libraries(mumble_modern_contracts PUBLIC Qt6::Core \"$<$<CONFIG:Debug>:legacy_ui>\")\n"
 "include(\"${MODERN_DEPENDENCY_VERIFIER}\")\n"
 "verify_modern_layer_dependencies()\n")
 

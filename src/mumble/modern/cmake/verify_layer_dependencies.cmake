@@ -24,6 +24,19 @@ function(_resolve_modern_target_alias MODERN_TARGET MODERN_RESOLVED_TARGET)
 	set("${MODERN_RESOLVED_TARGET}" "${MODERN_RESOLVED_ALIAS_TARGET}" PARENT_SCOPE)
 endfunction()
 
+function(_verify_modern_target_link_reference MODERN_TARGET_LINK MODERN_TARGET MODERN_VISITED_TARGETS)
+	_resolve_modern_target_alias("${MODERN_TARGET_LINK}" MODERN_RESOLVED_TARGET_LINK)
+	string(REGEX MATCH "^Qt[0-9]+::(Widgets|Quick)$" MODERN_FORBIDDEN_LINK
+		"${MODERN_RESOLVED_TARGET_LINK}")
+	if(MODERN_FORBIDDEN_LINK)
+		message(FATAL_ERROR
+			"Forbidden linked target '${MODERN_FORBIDDEN_LINK}' in ${MODERN_TARGET}")
+	endif()
+	if(TARGET "${MODERN_RESOLVED_TARGET_LINK}")
+		_verify_modern_target_dependencies("${MODERN_RESOLVED_TARGET_LINK}" "${MODERN_VISITED_TARGETS}")
+	endif()
+endfunction()
+
 function(_verify_modern_target_dependencies MODERN_TARGET MODERN_VISITED_TARGETS)
 	_resolve_modern_target_alias("${MODERN_TARGET}" MODERN_TARGET)
 	list(FIND MODERN_VISITED_TARGETS "${MODERN_TARGET}" MODERN_TARGET_VISITED_INDEX)
@@ -44,15 +57,18 @@ function(_verify_modern_target_dependencies MODERN_TARGET MODERN_VISITED_TARGETS
 				"${MODERN_RESOLVED_TARGET_LINK}")
 			string(REGEX REPLACE "^\\$<BUILD_INTERFACE:([^>]+)>$" "\\1" MODERN_RESOLVED_TARGET_LINK
 				"${MODERN_RESOLVED_TARGET_LINK}")
-			_resolve_modern_target_alias("${MODERN_RESOLVED_TARGET_LINK}" MODERN_RESOLVED_TARGET_LINK)
-			string(REGEX MATCH "^Qt[0-9]+::(Widgets|Quick)$" MODERN_FORBIDDEN_LINK
-				"${MODERN_RESOLVED_TARGET_LINK}")
-			if(MODERN_FORBIDDEN_LINK)
-				message(FATAL_ERROR
-					"Forbidden linked target '${MODERN_FORBIDDEN_LINK}' in ${MODERN_TARGET}")
-			endif()
-			if(TARGET "${MODERN_RESOLVED_TARGET_LINK}")
-				_verify_modern_target_dependencies("${MODERN_RESOLVED_TARGET_LINK}" "${MODERN_VISITED_TARGETS}")
+			if(MODERN_RESOLVED_TARGET_LINK MATCHES "\\$<")
+				# Generator expressions can conditionally hide a target. Inspect only target-like
+				# tokens, then use the same alias resolution and graph traversal as direct links.
+				string(REGEX MATCHALL "[A-Za-z_][A-Za-z0-9_:.+-]*" MODERN_GENERATOR_EXPRESSION_TOKENS
+					"${MODERN_RESOLVED_TARGET_LINK}")
+				foreach(MODERN_GENERATOR_EXPRESSION_TOKEN IN LISTS MODERN_GENERATOR_EXPRESSION_TOKENS)
+					_verify_modern_target_link_reference("${MODERN_GENERATOR_EXPRESSION_TOKEN}"
+						"${MODERN_TARGET}" "${MODERN_VISITED_TARGETS}")
+				endforeach()
+			else()
+				_verify_modern_target_link_reference("${MODERN_RESOLVED_TARGET_LINK}"
+					"${MODERN_TARGET}" "${MODERN_VISITED_TARGETS}")
 			endif()
 		endforeach()
 	endforeach()
